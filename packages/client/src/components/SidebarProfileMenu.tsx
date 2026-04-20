@@ -9,6 +9,7 @@ import {
   Settings,
   Shield,
   Type,
+  Users,
 } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -237,22 +238,24 @@ export function SidebarProfileMenu({
             </button>
           )}
 
-          {user.typ === 'member' &&
-            user.accountRole === 'admin' &&
-            onOpenAdminAccounts && (
-              <button
-                type="button"
-                role="menuitem"
-                className={rowClass(false)}
-                onClick={() => {
-                  onOpenAdminAccounts();
-                  setOpen(false);
-                }}
-              >
+          {user.typ === 'member' && onOpenAdminAccounts && (
+            <button
+              type="button"
+              role="menuitem"
+              className={rowClass(false)}
+              onClick={() => {
+                onOpenAdminAccounts();
+                setOpen(false);
+              }}
+            >
+              {user.accountRole === 'admin' ? (
                 <Shield className="h-4 w-4 shrink-0 text-fg-secondary" />
-                <span className="min-w-0 flex-1">{t('admin.navLink')}</span>
-              </button>
-            )}
+              ) : (
+                <Users className="h-4 w-4 shrink-0 text-fg-secondary" />
+              )}
+              <span className="min-w-0 flex-1">{t('admin.navLink')}</span>
+            </button>
+          )}
 
           <button
             type="button"

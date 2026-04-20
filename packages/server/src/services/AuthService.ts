@@ -1,5 +1,5 @@
 import bcrypt from 'bcryptjs';
-import { and, asc, eq, inArray } from 'drizzle-orm';
+import { and, asc, eq, inArray, sql } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 import { db } from '../db/client.js';
 import * as t from '../db/schema.js';
@@ -11,6 +11,19 @@ const SALT_ROUNDS = 10;
 
 function nowIso(): string {
   return new Date().toISOString();
+}
+
+/** First 8 chars of normalized email; pad with `0` if shorter (min length 8 for storage policy). */
+function defaultPasswordFromEmail(normalizedEmail: string): string {
+  const head = normalizedEmail.slice(0, 8);
+  return head.length >= 8 ? head : head.padEnd(8, '0');
+}
+
+function deriveDisplayNameFromEmail(normalizedEmail: string): string {
+  const at = normalizedEmail.indexOf('@');
+  const local = at > 0 ? normalizedEmail.slice(0, at) : normalizedEmail;
+  const name = local.trim() || normalizedEmail;
+  return name.slice(0, 120);
 }
 
 export async function hashPassword(plain: string): Promise<string> {
@@ -32,7 +45,11 @@ export async function registerMember(input: {
   const id = nanoid();
   const ts = nowIso();
   const passwordHash = await hashPassword(input.password);
-  const accountRole: AccountRole = 'member';
+  const countRow = await db
+    .select({ c: sql<number>`count(*)`.mapWith(Number) })
+    .from(t.member)
+    .get();
+  const accountRole: AccountRole = (countRow?.c ?? 0) === 0 ? 'admin' : 'member';
   try {
     await db.insert(t.member).values({
       id,
@@ -126,12 +143,25 @@ export async function createMemberByAdmin(input: {
   initialPassword?: string;
 }> {
   const role: AccountRole =
-    input.accountRole === 'guest' ? 'guest' : 'member';
+    input.accountRole === 'guest'
+      ? 'guest'
+      : input.accountRole === 'admin'
+        ? 'admin'
+        : 'member';
   const id = nanoid();
   const ts = nowIso();
-  const initialPassword = input.password?.trim() || nanoid(18);
-  const passwordHash = await hashPassword(initialPassword);
   const email = input.email.toLowerCase().trim();
+  const trimmedPwd = input.password?.trim();
+  let initialPassword: string;
+  if (trimmedPwd) {
+    if (trimmedPwd.length < 8) {
+      throw new Error('Password must be at least 8 characters');
+    }
+    initialPassword = trimmedPwd;
+  } else {
+    initialPassword = defaultPasswordFromEmail(email);
+  }
+  const passwordHash = await hashPassword(initialPassword);
   try {
     await db.insert(t.member).values({
       id,
@@ -151,8 +181,183 @@ export async function createMemberByAdmin(input: {
   }
   return {
     user: { id, email, displayName: input.displayName.trim(), accountRole: role },
-    initialPassword: input.password?.trim() ? undefined : initialPassword,
+    initialPassword: trimmedPwd ? undefined : initialPassword,
   };
+}
+
+export async function createMembersByAdminBatch(input: {
+  accountRole?: AccountRole;
+  entries: { email: string; displayName?: string }[];
+}): Promise<{
+  created: Array<{
+    user: { id: string; email: string; displayName: string; accountRole: AccountRole };
+    initialPassword: string;
+  }>;
+  failed: Array<{ email: string; error: string }>;
+}> {
+  const role: AccountRole =
+    input.accountRole === 'guest'
+      ? 'guest'
+      : input.accountRole === 'admin'
+        ? 'admin'
+        : 'member';
+
+  const seen = new Set<string>();
+  const created: Array<{
+    user: { id: string; email: string; displayName: string; accountRole: AccountRole };
+    initialPassword: string;
+  }> = [];
+  const failed: Array<{ email: string; error: string }> = [];
+
+  for (const raw of input.entries) {
+    const email = raw.email.toLowerCase().trim();
+    const displayName = (raw.displayName?.trim() || deriveDisplayNameFromEmail(email)).slice(
+      0,
+      120,
+    );
+    if (seen.has(email)) {
+      failed.push({ email, error: 'Duplicate in batch' });
+      continue;
+    }
+    seen.add(email);
+
+    try {
+      const out = await createMemberByAdmin({
+        email,
+        displayName,
+        password: undefined,
+        accountRole: role,
+      });
+      const initialPassword = out.initialPassword ?? defaultPasswordFromEmail(email);
+      created.push({ user: out.user, initialPassword });
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : 'Failed to create user';
+      failed.push({ email, error: msg });
+    }
+  }
+
+  return { created, failed };
+}
+
+export async function updateMemberByAdmin(
+  actor: Actor,
+  memberId: string,
+  input: {
+    email?: string;
+    displayName?: string;
+    accountRole?: AccountRole;
+    password?: string;
+  },
+): Promise<{
+  user: { id: string; email: string; displayName: string; accountRole: AccountRole };
+  token?: string;
+}> {
+  if (actor.type !== 'member') {
+    throw new Error('Forbidden');
+  }
+
+  const target = await db.select().from(t.member).where(eq(t.member.id, memberId)).get();
+  if (!target) throw new Error('Member not found');
+
+  const hasDisplay = input.displayName !== undefined;
+  const hasRole = input.accountRole !== undefined;
+  const hasEmailInput = input.email !== undefined;
+  const pwd = input.password?.trim();
+  const hasPassword = Boolean(pwd);
+
+  let emailActuallyChanges = false;
+  let nextEmail = target.email;
+  if (hasEmailInput) {
+    const normalized = input.email!.toLowerCase().trim();
+    if (!normalized) {
+      throw new Error('Email required');
+    }
+    emailActuallyChanges = normalized !== target.email;
+    nextEmail = normalized;
+  }
+
+  if (!hasDisplay && !hasRole && !hasPassword && !emailActuallyChanges) {
+    throw new Error('No changes');
+  }
+
+  if (hasDisplay && !input.displayName!.trim()) {
+    throw new Error('Display name required');
+  }
+
+  if (emailActuallyChanges) {
+    const other = await db
+      .select({ id: t.member.id })
+      .from(t.member)
+      .where(eq(t.member.email, nextEmail))
+      .get();
+    if (other && other.id !== memberId) {
+      throw new Error('Email already registered');
+    }
+  }
+
+  if (hasRole && target.accountRole === 'admin' && input.accountRole !== 'admin') {
+    const row = await db
+      .select({ c: sql<number>`count(*)`.mapWith(Number) })
+      .from(t.member)
+      .where(eq(t.member.accountRole, 'admin'))
+      .get();
+    if ((row?.c ?? 0) <= 1) {
+      throw new Error('Cannot remove the last admin');
+    }
+  }
+
+  if (hasPassword && pwd!.length < 8) {
+    throw new Error('Password must be at least 8 characters');
+  }
+
+  const ts = nowIso();
+  const nextDisplay = hasDisplay ? input.displayName!.trim() : target.displayName;
+  const nextRole = hasRole ? input.accountRole! : (target.accountRole as AccountRole);
+
+  const updates: {
+    email?: string;
+    displayName: string;
+    accountRole: AccountRole;
+    passwordHash?: string;
+    updatedAt: string;
+  } = {
+    displayName: nextDisplay,
+    accountRole: nextRole,
+    updatedAt: ts,
+  };
+  if (emailActuallyChanges) {
+    updates.email = nextEmail;
+  }
+  if (hasPassword) {
+    updates.passwordHash = await hashPassword(pwd!);
+  }
+
+  try {
+    await db.update(t.member).set(updates).where(eq(t.member.id, memberId)).run();
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : '';
+    if (msg.includes('UNIQUE') || msg.includes('unique')) {
+      throw new Error('Email already registered');
+    }
+    throw e;
+  }
+
+  const row = await db.select().from(t.member).where(eq(t.member.id, memberId)).get();
+  if (!row) throw new Error('Member not found');
+
+  const user = {
+    id: row.id,
+    email: row.email,
+    displayName: row.displayName,
+    accountRole: row.accountRole as AccountRole,
+  };
+
+  let token: string | undefined;
+  if (actor.id === memberId && hasRole) {
+    token = await signActorToken('member', memberId, user.accountRole);
+  }
+
+  return { user, token };
 }
 
 export async function listMembersForAdmin(): Promise<
@@ -174,6 +379,88 @@ export async function listMembersForAdmin(): Promise<
     })
     .from(t.member)
     .orderBy(asc(t.member.email));
+  return rows.map((r) => ({
+    ...r,
+    accountRole: r.accountRole as AccountRole,
+  }));
+}
+
+/**
+ * Member directory for the accounts UI: full roster for non-guests; guests see the same peer scope as workspace actors.
+ */
+export async function listMemberDirectoryForActor(actor: Actor): Promise<
+  {
+    id: string;
+    email: string;
+    displayName: string;
+    accountRole: AccountRole;
+    createdAt: string;
+  }[]
+> {
+  if (actor.type !== 'member') {
+    throw new Error('Forbidden');
+  }
+  if (actor.accountRole !== 'guest') {
+    return listMembersForAdmin();
+  }
+
+  const memberships = await db
+    .select({ projectId: t.projectMember.projectId })
+    .from(t.projectMember)
+    .where(
+      and(
+        eq(t.projectMember.actorType, 'member'),
+        eq(t.projectMember.actorId, actor.id),
+      ),
+    )
+    .all();
+  const projectIds = [...new Set(memberships.map((m) => m.projectId))];
+  if (projectIds.length === 0) {
+    const self = await db
+      .select({
+        id: t.member.id,
+        email: t.member.email,
+        displayName: t.member.displayName,
+        accountRole: t.member.accountRole,
+        createdAt: t.member.createdAt,
+      })
+      .from(t.member)
+      .where(eq(t.member.id, actor.id))
+      .get();
+    if (!self) return [];
+    return [
+      {
+        ...self,
+        accountRole: self.accountRole as AccountRole,
+      },
+    ];
+  }
+
+  const peerRows = await db
+    .select({ actorId: t.projectMember.actorId })
+    .from(t.projectMember)
+    .where(
+      and(
+        eq(t.projectMember.actorType, 'member'),
+        inArray(t.projectMember.projectId, projectIds),
+      ),
+    )
+    .all();
+  const peerIds = [...new Set(peerRows.map((r) => r.actorId))];
+  if (!peerIds.includes(actor.id)) peerIds.push(actor.id);
+
+  const rows = await db
+    .select({
+      id: t.member.id,
+      email: t.member.email,
+      displayName: t.member.displayName,
+      accountRole: t.member.accountRole,
+      createdAt: t.member.createdAt,
+    })
+    .from(t.member)
+    .where(inArray(t.member.id, peerIds))
+    .orderBy(asc(t.member.email));
+
   return rows.map((r) => ({
     ...r,
     accountRole: r.accountRole as AccountRole,

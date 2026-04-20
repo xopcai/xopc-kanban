@@ -198,7 +198,7 @@ export const api = {
     email: string;
     displayName: string;
     password?: string;
-    accountRole?: 'member' | 'guest';
+    accountRole?: 'admin' | 'member' | 'guest';
   }) {
     return apiFetch('/api/admin/members', {
       method: 'POST',
@@ -213,6 +213,56 @@ export const api = {
             accountRole: AccountRole;
           };
           initialPassword?: string;
+        }>(r),
+    );
+  },
+
+  createAdminMembersBatch(body: {
+    accountRole?: 'admin' | 'member' | 'guest';
+    entries: { email: string; displayName?: string }[];
+  }) {
+    return apiFetch('/api/admin/members/batch', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }).then(
+      (r) =>
+        parseJson<{
+          created: Array<{
+            user: {
+              id: string;
+              email: string;
+              displayName: string;
+              accountRole: AccountRole;
+            };
+            initialPassword: string;
+          }>;
+          failed: Array<{ email: string; error: string }>;
+        }>(r),
+    );
+  },
+
+  patchAdminMember(
+    memberId: string,
+    body: {
+      email?: string;
+      displayName?: string;
+      accountRole?: AccountRole;
+      password?: string;
+    },
+  ) {
+    return apiFetch(`/api/admin/members/${encodeURIComponent(memberId)}`, {
+      method: 'PATCH',
+      body: JSON.stringify(body),
+    }).then(
+      (r) =>
+        parseJson<{
+          user: {
+            id: string;
+            email: string;
+            displayName: string;
+            accountRole: AccountRole;
+          };
+          token?: string;
         }>(r),
     );
   },
