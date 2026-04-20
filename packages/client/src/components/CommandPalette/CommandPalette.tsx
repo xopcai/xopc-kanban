@@ -1,15 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useTaskList } from '../../hooks/useTasks';
 import { useUiStore, type ThemeMode } from '../../store/uiStore';
 import type { ViewMode } from '../../types';
 
-const THEME_LABEL: Record<ThemeMode, string> = {
-  system: 'System',
-  light: 'Light',
-  dark: 'Dark',
-};
-
 export function CommandPalette() {
+  const { t } = useTranslation();
   const open = useUiStore((s) => s.commandOpen);
   const setOpen = useUiStore((s) => s.setCommandOpen);
   const themeMode = useUiStore((s) => s.themeMode);
@@ -66,7 +62,7 @@ export function CommandPalette() {
     <>
       <button
         type="button"
-        aria-label="Close command palette"
+        aria-label={t('command.closeAria')}
         className="fixed inset-0 z-[60] bg-[var(--overlay-scrim)]"
         onClick={() => setOpen(false)}
       />
@@ -74,14 +70,14 @@ export function CommandPalette() {
         className="fixed left-1/2 top-20 z-[70] w-full max-w-lg -translate-x-1/2 rounded-xl border border-edge bg-surface-panel shadow-elevated"
         role="dialog"
         aria-modal="true"
-        aria-label="Command palette"
+        aria-label={t('command.ariaLabel')}
       >
         <div className="border-b border-edge-subtle p-3">
           <input
             ref={inputRef}
             value={q}
             onChange={(e) => setQ(e.target.value)}
-            placeholder="Search tasks or choose an action…"
+            placeholder={t('command.searchPlaceholder')}
             className="w-full rounded-xl border border-edge bg-surface-panel px-3 py-2 text-sm leading-6 text-fg placeholder:text-fg-subtle focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
           />
         </div>
@@ -89,7 +85,7 @@ export function CommandPalette() {
         <div className="max-h-[min(60vh,420px)] overflow-y-auto px-2 py-2">
           {filtered.length > 0 && (
             <p className="px-2 py-1 text-xs font-semibold uppercase tracking-wide text-fg-subtle">
-              Tasks
+              {t('command.sectionTasks')}
             </p>
           )}
           <ul className="flex flex-col gap-0.5">
@@ -114,7 +110,7 @@ export function CommandPalette() {
           </ul>
 
           <p className="mt-3 px-2 py-1 text-xs font-semibold uppercase tracking-wide text-fg-subtle">
-            Navigate
+            {t('command.sectionNavigate')}
           </p>
           <ul className="flex flex-col gap-0.5">
             <li>
@@ -123,7 +119,7 @@ export function CommandPalette() {
                 className="w-full rounded-xl px-3 py-2 text-left text-sm font-medium leading-6 text-fg transition-colors hover:bg-surface-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
                 onClick={() => goView('board')}
               >
-                Board view
+                {t('command.boardView')}
               </button>
             </li>
             <li>
@@ -132,7 +128,7 @@ export function CommandPalette() {
                 className="w-full rounded-xl px-3 py-2 text-left text-sm font-medium leading-6 text-fg transition-colors hover:bg-surface-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
                 onClick={() => goView('list')}
               >
-                List view
+                {t('command.listView')}
               </button>
             </li>
             <li>
@@ -141,13 +137,13 @@ export function CommandPalette() {
                 className="w-full rounded-xl px-3 py-2 text-left text-sm font-medium leading-6 text-fg transition-colors hover:bg-surface-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
                 onClick={() => goView('graph')}
               >
-                Graph view
+                {t('command.graphView')}
               </button>
             </li>
           </ul>
 
           <p className="mt-3 px-2 py-1 text-xs font-semibold uppercase tracking-wide text-fg-subtle">
-            Actions
+            {t('command.sectionActions')}
           </p>
           <ul className="flex flex-col gap-0.5">
             <li>
@@ -158,7 +154,7 @@ export function CommandPalette() {
                   run(() => useUiStore.getState().setCreateOpen(true))
                 }
               >
-                New task
+                {t('command.newTask')}
               </button>
             </li>
             <li>
@@ -175,15 +171,16 @@ export function CommandPalette() {
                   })
                 }
               >
-                Theme: {THEME_LABEL[themeMode]} (cycle)
+                {t('command.themeCycle', {
+                  mode: t(`theme.${themeMode}`),
+                })}
               </button>
             </li>
           </ul>
         </div>
 
         <footer className="border-t border-edge-subtle px-3 py-2 text-xs leading-5 text-fg-subtle">
-          <kbd className="rounded border border-edge px-1">Esc</kbd> close ·{' '}
-          <kbd className="rounded border border-edge px-1">⌘K</kbd> toggle
+          {t('command.footer')}
         </footer>
       </div>
     </>

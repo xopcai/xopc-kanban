@@ -6,6 +6,7 @@ import {
   useSensors,
 } from '@dnd-kit/core';
 import { useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import type { ListTasksParams } from '../../api/client';
 import type { Task, TaskStatus } from '../../types';
 import { STATUS_ORDER } from '../../lib/taskOrdering';
@@ -24,6 +25,7 @@ import { TaskContextMenu } from './TaskContextMenu';
 const COLUMN_ORDER = STATUS_ORDER.filter((s) => s !== 'cancelled');
 
 export function BoardView({ onOpenTask }: { onOpenTask: (id: string) => void }) {
+  const { t } = useTranslation();
   const taskFilters = useUiStore((s) => s.taskFilters);
   const selectionMode = useUiStore((s) => s.selectionMode);
   const selectedTaskIds = useUiStore((s) => s.selectedTaskIds);
@@ -85,7 +87,7 @@ export function BoardView({ onOpenTask }: { onOpenTask: (id: string) => void }) 
   if (isLoading) {
     return (
       <div className="rounded-xl border border-edge-subtle bg-surface-panel p-8 text-sm text-fg-secondary">
-        Loading tasks…
+        {t('loading.tasks')}
       </div>
     );
   }

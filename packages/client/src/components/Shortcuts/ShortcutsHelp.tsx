@@ -1,19 +1,31 @@
 import { X } from 'lucide-react';
-import { useEffect } from 'react';
+import { useEffect, useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useUiStore } from '../../store/uiStore';
 
-const ROWS: { keys: string; action: string }[] = [
-  { keys: '⌘K / Ctrl+K', action: 'Command palette' },
-  { keys: 'C', action: 'New task' },
-  { keys: '1 · 2 · 3', action: 'Board / List / Graph' },
-  { keys: 'B', action: 'Toggle selection mode (board & list)' },
-  { keys: '?', action: 'Keyboard shortcuts' },
-  { keys: 'Esc', action: 'Close dialogs; clear bulk selection' },
+const ROW_DEF: { keys: string; descKey: string }[] = [
+  { keys: '⌘K / Ctrl+K', descKey: 'shortcuts.cmdPalette' },
+  { keys: 'C', descKey: 'shortcuts.newTask' },
+  { keys: '1 · 2 · 3', descKey: 'shortcuts.views' },
+  { keys: 'B', descKey: 'shortcuts.toggleSelect' },
+  { keys: '?', descKey: 'shortcuts.help' },
+  { keys: 'Esc', descKey: 'shortcuts.escape' },
 ];
 
 export function ShortcutsHelp() {
+  const { t } = useTranslation();
   const open = useUiStore((s) => s.shortcutsOpen);
   const setOpen = useUiStore((s) => s.setShortcutsOpen);
+
+  const rows = useMemo(
+    () =>
+      ROW_DEF.map((r) => ({
+        descKey: r.descKey,
+        keys: r.keys,
+        action: t(r.descKey),
+      })),
+    [t],
+  );
 
   useEffect(() => {
     if (!open) return;
@@ -33,7 +45,7 @@ export function ShortcutsHelp() {
     <>
       <button
         type="button"
-        aria-label="Close shortcuts"
+        aria-label={t('shortcuts.closeAria')}
         className="fixed inset-0 z-[60] bg-[var(--overlay-scrim)]"
         onClick={() => setOpen(false)}
       />
@@ -45,7 +57,7 @@ export function ShortcutsHelp() {
       >
         <div className="flex items-start justify-between gap-3">
           <h2 id="shortcuts-title" className="text-base font-semibold text-fg">
-            Keyboard shortcuts
+            {t('shortcuts.title')}
           </h2>
           <button
             type="button"
@@ -56,13 +68,12 @@ export function ShortcutsHelp() {
           </button>
         </div>
         <p className="mt-1 text-xs leading-5 text-fg-subtle">
-          Shortcuts are disabled while typing in inputs. Graph view uses the
-          same navigation keys.
+          {t('shortcuts.hint')}
         </p>
         <table className="mt-4 w-full border-collapse text-left text-sm">
           <tbody>
-            {ROWS.map((row) => (
-              <tr key={row.action} className="border-t border-edge-subtle">
+            {rows.map((row) => (
+              <tr key={row.descKey} className="border-t border-edge-subtle">
                 <td className="py-2 pr-3 font-mono text-xs text-fg-secondary">
                   {row.keys}
                 </td>

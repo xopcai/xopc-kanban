@@ -1,3 +1,4 @@
+import type { TFunction } from 'i18next';
 import type { TaskPriority, TaskStatus } from '../types';
 
 export const STATUS_ORDER: TaskStatus[] = [
@@ -22,20 +23,10 @@ export function comparePriority(a: TaskPriority, b: TaskPriority): number {
   return PRIORITY_RANK[a] - PRIORITY_RANK[b];
 }
 
-export function statusLabel(s: TaskStatus): string {
-  const labels: Record<TaskStatus, string> = {
-    backlog: 'Backlog',
-    todo: 'Todo',
-    in_progress: 'In progress',
-    in_review: 'Review',
-    blocked: 'Blocked',
-    done: 'Done',
-    cancelled: 'Cancelled',
-  };
-  return labels[s];
+export function statusLabel(s: TaskStatus, t: TFunction): string {
+  return t(`status.${s}`);
 }
 
-export function priorityLabel(p: TaskPriority): string {
-  if (p === 'none') return 'No priority';
-  return p.replaceAll('_', ' ');
+export function priorityLabel(p: TaskPriority, t: TFunction): string {
+  return t(`priority.${p}`);
 }

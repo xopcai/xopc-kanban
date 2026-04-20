@@ -1,6 +1,7 @@
 import { useDroppable } from '@dnd-kit/core';
 import clsx from 'clsx';
 import type { MouseEvent } from 'react';
+import { useTranslation } from 'react-i18next';
 import type { Task, TaskStatus } from '../../types';
 import { statusLabel } from '../../lib/taskOrdering';
 import { TaskCard } from './TaskCard';
@@ -24,13 +25,14 @@ export function BoardColumn({
   onToggleSelect: (id: string) => void;
   onContextMenu: (task: Task, e: MouseEvent) => void;
 }) {
+  const { t } = useTranslation();
   const { isOver, setNodeRef } = useDroppable({ id: status });
 
   return (
     <div className="flex w-64 shrink-0 flex-col gap-2">
       <div className="flex items-center justify-between px-1">
         <h3 className="text-sm font-semibold leading-6 text-fg">
-          {statusLabel(status)}
+          {statusLabel(status, t)}
         </h3>
         <span className="text-xs leading-5 text-fg-subtle">{tasks.length}</span>
       </div>

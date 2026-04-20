@@ -1,7 +1,8 @@
 import type { CSSProperties } from 'react';
 import { useEffect, useRef } from 'react';
+import { useTranslation } from 'react-i18next';
 import type { Task, TaskStatus } from '../../types';
-import { STATUS_ORDER } from '../../lib/taskOrdering';
+import { STATUS_ORDER, statusLabel } from '../../lib/taskOrdering';
 import { WORKSPACE_MEMBERS } from '../../lib/members';
 
 const menuStatuses = STATUS_ORDER.filter((s) => s !== 'cancelled');
@@ -25,6 +26,7 @@ export function TaskContextMenu({
   onAssign: (memberId: string | null, type: 'member' | 'agent' | null) => void;
   onDelete: () => void;
 }) {
+  const { t } = useTranslation();
   const ref = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -52,7 +54,7 @@ export function TaskContextMenu({
       style={style}
       className="min-w-[200px] rounded-xl border border-edge bg-surface-panel py-1 shadow-elevated"
       role="menu"
-      aria-label={`Task actions for ${task.identifier}`}
+      aria-label={t('contextMenu.aria', { id: task.identifier })}
     >
       <button
         type="button"
@@ -63,11 +65,11 @@ export function TaskContextMenu({
           onClose();
         }}
       >
-        Open detail
+        {t('contextMenu.openDetail')}
       </button>
       <div className="my-1 border-t border-edge-subtle" />
       <p className="px-3 py-1 text-xs font-semibold uppercase tracking-wide text-fg-subtle">
-        Status
+        {t('contextMenu.status')}
       </p>
       {menuStatuses.map((s) => (
         <button
@@ -80,12 +82,14 @@ export function TaskContextMenu({
             onClose();
           }}
         >
-          → {s}
+          {t('contextMenu.statusArrow', {
+            label: statusLabel(s, t),
+          })}
         </button>
       ))}
       <div className="my-1 border-t border-edge-subtle" />
       <p className="px-3 py-1 text-xs font-semibold uppercase tracking-wide text-fg-subtle">
-        Assign
+        {t('contextMenu.assign')}
       </p>
       <button
         type="button"
@@ -95,7 +99,7 @@ export function TaskContextMenu({
           onClose();
         }}
       >
-        Unassign
+        {t('contextMenu.unassign')}
       </button>
       {WORKSPACE_MEMBERS.map((m) => (
         <button
@@ -107,7 +111,7 @@ export function TaskContextMenu({
             onClose();
           }}
         >
-          {m.name}
+          {t(`members.${m.id}`, { defaultValue: m.name })}
         </button>
       ))}
       <div className="my-1 border-t border-edge-subtle" />
@@ -119,7 +123,7 @@ export function TaskContextMenu({
           onClose();
         }}
       >
-        Delete…
+        {t('contextMenu.delete')}
       </button>
     </div>
   );

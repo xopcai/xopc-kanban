@@ -5,21 +5,12 @@ import {
   Workflow,
 } from 'lucide-react';
 import { useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 import type { TaskComment } from '../../types';
 
-const typeMeta: Record<
-  TaskComment['type'],
-  { label: string; Icon: typeof MessageSquare }
-> = {
-  comment: { label: 'Note', Icon: MessageSquare },
-  status_change: { label: 'Status', Icon: Workflow },
-  progress_update: { label: 'Progress', Icon: Sparkles },
-  system: { label: 'System', Icon: GitCommit },
-};
-
-function dayKey(iso: string): string {
+function dayKey(iso: string, locale: string): string {
   const d = new Date(iso);
-  return d.toLocaleDateString(undefined, {
+  return d.toLocaleDateString(locale, {
     year: 'numeric',
     month: 'short',
     day: 'numeric',
@@ -27,24 +18,43 @@ function dayKey(iso: string): string {
 }
 
 export function MemoryTimeline({ items }: { items: TaskComment[] }) {
+  const { t, i18n } = useTranslation();
+
+  const typeMeta = useMemo(
+    () =>
+      ({
+        comment: { labelKey: 'memory.typeNote' as const, Icon: MessageSquare },
+        status_change: { labelKey: 'memory.typeStatus' as const, Icon: Workflow },
+        progress_update: {
+          labelKey: 'memory.typeProgress' as const,
+          Icon: Sparkles,
+        },
+        system: { labelKey: 'memory.typeSystem' as const, Icon: GitCommit },
+      }) satisfies Record<
+        TaskComment['type'],
+        { labelKey: string; Icon: typeof MessageSquare }
+      >,
+    [],
+  );
+
   const grouped = useMemo(() => {
     const sorted = [...items].sort(
       (a, b) => b.createdAt.localeCompare(a.createdAt),
     );
     const map: { day: string; rows: TaskComment[] }[] = [];
     for (const row of sorted) {
-      const day = dayKey(row.createdAt);
+      const day = dayKey(row.createdAt, i18n.language);
       const last = map[map.length - 1];
       if (last && last.day === day) last.rows.push(row);
       else map.push({ day, rows: [row] });
     }
     return map;
-  }, [items]);
+  }, [items, i18n.language]);
 
   if (items.length === 0) {
     return (
       <p className="text-sm leading-relaxed text-fg-secondary">
-        No activity yet. Add a note below.
+        {t('memory.empty')}
       </p>
     );
   }
@@ -70,10 +80,10 @@ export function MemoryTimeline({ items }: { items: TaskComment[] }) {
                   </span>
                   <div className="flex flex-wrap items-center justify-between gap-2">
                     <span className="text-xs font-medium capitalize leading-5 text-fg-secondary">
-                      {meta.label}
+                      {t(meta.labelKey)}
                     </span>
                     <time className="text-xs leading-5 text-fg-subtle">
-                      {new Date(m.createdAt).toLocaleTimeString(undefined, {
+                      {new Date(m.createdAt).toLocaleTimeString(i18n.language, {
                         hour: '2-digit',
                         minute: '2-digit',
                       })}

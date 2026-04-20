@@ -9,6 +9,8 @@ import {
   Sun,
 } from 'lucide-react';
 import { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
+import type { AppLocale } from './i18n/config';
 import { BoardView } from './components/Board/BoardView';
 import { BulkActionsBar } from './components/Board/BulkActionsBar';
 import { CommandPalette } from './components/CommandPalette/CommandPalette';
@@ -127,6 +129,8 @@ const THEME_ICON: Record<ThemeMode, typeof Sun> = {
 };
 
 export default function App() {
+  const { t, i18n } = useTranslation();
+
   useTaskEventsStream(true);
   useSyncThemeClass();
   useGlobalShortcuts();
@@ -157,8 +161,10 @@ export default function App() {
     <div className="flex min-h-screen">
       <aside className="flex w-60 shrink-0 flex-col gap-2 bg-surface-base px-3 py-4">
         <div className="px-2">
-          <p className="text-xl font-semibold tracking-tight text-fg">XOPC</p>
-          <p className="text-xs leading-5 text-fg-subtle">Task-native kanban</p>
+          <p className="text-xl font-semibold tracking-tight text-fg">
+            {t('app.brand')}
+          </p>
+          <p className="text-xs leading-5 text-fg-subtle">{t('app.tagline')}</p>
         </div>
         <nav className="mt-4 flex flex-col gap-1.5">
           <button
@@ -171,7 +177,7 @@ export default function App() {
             }`}
           >
             <LayoutGrid className="h-5 w-5 text-fg-subtle" />
-            Board
+            {t('nav.board')}
           </button>
           <button
             type="button"
@@ -183,7 +189,7 @@ export default function App() {
             }`}
           >
             <List className="h-5 w-5 text-fg-subtle" />
-            List
+            {t('nav.list')}
           </button>
           <button
             type="button"
@@ -195,18 +201,33 @@ export default function App() {
             }`}
           >
             <GitBranch className="h-5 w-5 text-fg-subtle" />
-            Graph
+            {t('nav.graph')}
           </button>
         </nav>
 
         <div className="mt-auto flex flex-col gap-1.5 border-t border-edge-subtle pt-3">
+          <label className="flex flex-col gap-1 px-1">
+            <span className="text-xs font-medium text-fg-subtle">
+              {t('language.label')}
+            </span>
+            <select
+              className="rounded-xl border border-edge bg-surface-panel px-2 py-2 text-sm text-fg focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+              value={i18n.language.startsWith('zh') ? 'zh' : 'en'}
+              onChange={(e) => {
+                void i18n.changeLanguage(e.target.value as AppLocale);
+              }}
+            >
+              <option value="en">{t('language.en')}</option>
+              <option value="zh">{t('language.zh')}</option>
+            </select>
+          </label>
           <button
             type="button"
             onClick={cycleTheme}
             className="flex items-center gap-2 rounded-xl px-3 py-2 text-sm font-medium leading-6 text-fg-secondary transition-colors duration-150 hover:bg-surface-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
           >
             <ThemeIcon className="h-5 w-5 text-fg-subtle" />
-            Theme: {themeMode}
+            {t('theme.label')}: {t(`theme.${themeMode}`)}
           </button>
         </div>
       </aside>
@@ -215,17 +236,10 @@ export default function App() {
         <header className="flex flex-wrap items-center justify-between gap-3 border-b border-edge-subtle px-6 py-3">
           <div>
             <h1 className="text-xl font-semibold tracking-tight text-fg">
-              Tasks
+              {t('app.tasksTitle')}
             </h1>
             <p className="text-sm leading-relaxed text-fg-secondary">
-              <kbd className="rounded border border-edge px-1">⌘K</kbd>{' '}
-              command palette ·{' '}
-              <kbd className="rounded border border-edge px-1">C</kbd> new ·{' '}
-              <kbd className="rounded border border-edge px-1">1</kbd>–
-              <kbd className="rounded border border-edge px-1">3</kbd> views ·{' '}
-              <kbd className="rounded border border-edge px-1">B</kbd> select ·{' '}
-              <kbd className="rounded border border-edge px-1">?</kbd> help ·
-              double-click card title to rename
+              {t('app.headerHint')}
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
@@ -240,7 +254,7 @@ export default function App() {
                 }`}
               >
                 <CheckSquare className="h-4 w-4" />
-                {selectionMode ? 'Selecting' : 'Select'}
+                {selectionMode ? t('actions.selecting') : t('actions.select')}
               </button>
             )}
             <button
@@ -249,7 +263,7 @@ export default function App() {
               className="inline-flex items-center gap-2 rounded-xl bg-accent px-4 py-2 text-sm font-medium text-white transition-colors duration-150 hover:bg-accent-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-accent active:scale-95"
             >
               <Plus className="h-4 w-4" />
-              New task
+              {t('actions.newTask')}
             </button>
           </div>
         </header>
@@ -273,16 +287,18 @@ export default function App() {
         <>
           <button
             type="button"
-            aria-label="Close create"
+            aria-label={t('createModal.closeAria')}
             className="fixed inset-0 z-40 bg-[var(--overlay-scrim)]"
             onClick={() => setCreateOpen(false)}
           />
           <div className="fixed left-1/2 top-24 z-50 w-full max-w-md -translate-x-1/2 rounded-xl border border-edge bg-surface-panel p-4 shadow-elevated">
-            <h2 className="text-base font-semibold text-fg">New task</h2>
+            <h2 className="text-base font-semibold text-fg">
+              {t('createModal.title')}
+            </h2>
             <input
               autoFocus
               className="mt-3 w-full rounded-xl border border-edge px-3 py-2 text-sm leading-6 text-fg focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
-              placeholder="Title"
+              placeholder={t('createModal.titlePlaceholder')}
               value={newTitle}
               onChange={(e) => setNewTitle(e.target.value)}
               onKeyDown={(e) => {
@@ -307,7 +323,7 @@ export default function App() {
                 className="rounded-xl border border-edge px-4 py-2 text-sm font-medium text-fg transition-colors hover:bg-surface-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-accent active:scale-95"
                 onClick={() => setCreateOpen(false)}
               >
-                Cancel
+                {t('actions.cancel')}
               </button>
               <button
                 type="button"
@@ -326,7 +342,7 @@ export default function App() {
                   );
                 }}
               >
-                Create
+                {t('actions.create')}
               </button>
             </div>
           </div>

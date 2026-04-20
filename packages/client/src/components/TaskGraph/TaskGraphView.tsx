@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import clsx from 'clsx';
+import { useTranslation } from 'react-i18next';
 import { useTaskGraph, useTaskList } from '../../hooks/useTasks';
 import type { Task } from '../../types';
 
@@ -58,6 +59,7 @@ export function TaskGraphView({
 }: {
   onOpenTask: (id: string) => void;
 }) {
+  const { t } = useTranslation();
   const { data: tasks = [], isLoading: loadingTasks } = useTaskList(false);
   const [anchorId, setAnchorId] = useState<string | null>(null);
 
@@ -80,13 +82,15 @@ export function TaskGraphView({
     <div className="flex flex-col gap-4">
       <div className="flex flex-wrap items-end gap-3">
         <label className="flex flex-col gap-1">
-          <span className="text-sm font-medium leading-6 text-fg">Anchor task</span>
+          <span className="text-sm font-medium leading-6 text-fg">
+            {t('graph.anchor')}
+          </span>
           <select
             className="min-w-[220px] rounded-xl border border-edge bg-surface-panel px-3 py-2 text-sm leading-6 text-fg focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
             value={anchorId ?? ''}
             onChange={(e) => setAnchorId(e.target.value || null)}
           >
-            <option value="">Select…</option>
+            <option value="">{t('graph.selectPlaceholder')}</option>
             {tasks.map((t) => (
               <option key={t.id} value={t.id}>
                 {t.identifier} — {t.title}
@@ -95,19 +99,19 @@ export function TaskGraphView({
           </select>
         </label>
         <p className="text-sm leading-relaxed text-fg-secondary">
-          Arrows point from prerequisite → dependent. Connected component around the anchor.
+          {t('graph.hint')}
         </p>
       </div>
 
       {loading && (
         <div className="rounded-xl border border-edge-subtle bg-surface-panel p-6 text-sm text-fg-secondary">
-          Loading graph…
+          {t('loading.graph')}
         </div>
       )}
 
       {!loading && !anchorId && (
         <div className="rounded-xl border border-edge-subtle bg-surface-panel p-8 text-sm text-fg-secondary">
-          Create a task to view the dependency graph.
+          {t('graph.empty')}
         </div>
       )}
 
@@ -118,7 +122,7 @@ export function TaskGraphView({
             height={H}
             className="max-w-full"
             role="img"
-            aria-label="Task dependency graph"
+            aria-label={t('graph.svgAria')}
           >
             <defs>
               <marker

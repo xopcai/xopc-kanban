@@ -2,6 +2,7 @@ import MDEditor from '@uiw/react-md-editor';
 import '@uiw/react-md-editor/markdown-editor.css';
 import { X } from 'lucide-react';
 import { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   useAddDependency,
   useAddMemory,
@@ -18,6 +19,7 @@ import {
   useTaskMemory,
 } from '../../hooks/useTasks';
 import { useIsDark } from '../../hooks/useIsDark';
+import { statusLabel } from '../../lib/taskOrdering';
 import { WORKSPACE_MEMBERS } from '../../lib/members';
 import type { TaskStatus } from '../../types';
 import { MemoryTimeline } from './MemoryTimeline';
@@ -39,6 +41,7 @@ export function TaskDetailPanel({
   taskId: string;
   onClose: () => void;
 }) {
+  const { t } = useTranslation();
   const { data: task, isLoading } = useTaskDetail(taskId);
   const { data: memory = [] } = useTaskMemory(taskId);
   const patch = usePatchTask(taskId);
@@ -108,7 +111,7 @@ export function TaskDetailPanel({
     <>
       <button
         type="button"
-        aria-label="Close detail"
+        aria-label={t('detail.closeAria')}
         className="fixed inset-0 z-[62] bg-[var(--overlay-scrim)] transition-opacity duration-150 ease-out"
         onClick={onClose}
       />
@@ -127,7 +130,7 @@ export function TaskDetailPanel({
               id="task-detail-title"
               className="text-base font-semibold leading-6 text-fg truncate"
             >
-              Task detail
+              {t('detail.title')}
             </h2>
           </div>
           <button
@@ -141,11 +144,13 @@ export function TaskDetailPanel({
 
         <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4">
           {isLoading || !task ? (
-            <p className="text-sm text-fg-secondary">Loading…</p>
+            <p className="text-sm text-fg-secondary">{t('loading.generic')}</p>
           ) : (
             <div className="flex flex-col gap-5">
               <label className="flex flex-col gap-1">
-                <span className="text-sm font-medium leading-6 text-fg">Title</span>
+                <span className="text-sm font-medium leading-6 text-fg">
+                  {t('detail.fieldTitle')}
+                </span>
                 <input
                   className="rounded-xl border border-edge bg-surface-panel px-3 py-2 text-sm leading-6 text-fg placeholder:text-fg-subtle focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
                   value={title}
@@ -156,7 +161,7 @@ export function TaskDetailPanel({
 
               <label className="flex flex-col gap-1">
                 <span className="text-sm font-medium leading-6 text-fg">
-                  Description
+                  {t('detail.fieldDescription')}
                 </span>
                 <div data-color-mode={isDark ? 'dark' : 'light'}>
                   <MDEditor
@@ -174,7 +179,7 @@ export function TaskDetailPanel({
 
               <label className="flex flex-col gap-1">
                 <span className="text-sm font-medium leading-6 text-fg">
-                  Assignee
+                  {t('detail.fieldAssignee')}
                 </span>
                 <select
                   className="rounded-xl border border-edge bg-surface-panel px-3 py-2 text-sm leading-6 text-fg focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
@@ -195,17 +200,19 @@ export function TaskDetailPanel({
                     });
                   }}
                 >
-                  <option value="">Unassigned</option>
+                  <option value="">{t('detail.assigneeNone')}</option>
                   {WORKSPACE_MEMBERS.map((m) => (
                     <option key={`${m.type}-${m.id}`} value={`${m.type}|${m.id}`}>
-                      {m.name}
+                      {t(`members.${m.id}`, { defaultValue: m.name })}
                     </option>
                   ))}
                 </select>
               </label>
 
               <div className="flex flex-col gap-2">
-                <span className="text-sm font-medium leading-6 text-fg">Labels</span>
+                <span className="text-sm font-medium leading-6 text-fg">
+                  {t('detail.labels')}
+                </span>
                 <ul className="flex flex-col gap-1.5">
                   {allLabels.map((lbl) => {
                     const on = task.labels.some((x) => x.id === lbl.id);
@@ -233,16 +240,20 @@ export function TaskDetailPanel({
                 </ul>
                 <div className="flex flex-wrap items-end gap-2 pt-1">
                   <label className="flex min-w-[8rem] flex-1 flex-col gap-1">
-                    <span className="text-xs text-fg-subtle">New label</span>
+                    <span className="text-xs text-fg-subtle">
+                      {t('detail.newLabel')}
+                    </span>
                     <input
                       className="rounded-xl border border-edge bg-surface-panel px-3 py-2 text-sm text-fg placeholder:text-fg-subtle focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
-                      placeholder="Name"
+                      placeholder={t('detail.labelNamePh')}
                       value={newLabelName}
                       onChange={(e) => setNewLabelName(e.target.value)}
                     />
                   </label>
                   <label className="flex flex-col gap-1">
-                    <span className="text-xs text-fg-subtle">Color</span>
+                    <span className="text-xs text-fg-subtle">
+                      {t('detail.labelColor')}
+                    </span>
                     <input
                       type="color"
                       className="h-10 w-14 cursor-pointer rounded-lg border border-edge bg-surface-panel"
@@ -269,19 +280,21 @@ export function TaskDetailPanel({
                             window.alert(
                               err instanceof Error
                                 ? err.message
-                                : 'Could not create label',
+                                : t('detail.labelCreateErr'),
                             ),
                         },
                       );
                     }}
                   >
-                    Create and add
+                    {t('detail.labelCreateAdd')}
                   </button>
                 </div>
               </div>
 
               <label className="flex flex-col gap-1">
-                <span className="text-sm font-medium leading-6 text-fg">Status</span>
+                <span className="text-sm font-medium leading-6 text-fg">
+                  {t('detail.fieldStatus')}
+                </span>
                 <select
                   className="rounded-xl border border-edge bg-surface-panel px-3 py-2 text-sm leading-6 text-fg focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
                   value={task.status}
@@ -299,7 +312,7 @@ export function TaskDetailPanel({
                 >
                   {statuses.map((s) => (
                     <option key={s} value={s}>
-                      {s}
+                      {statusLabel(s, t)}
                     </option>
                   ))}
                 </select>
@@ -307,11 +320,13 @@ export function TaskDetailPanel({
 
               <div>
                 <h3 className="text-sm font-semibold leading-6 text-fg">
-                  Subtasks
+                  {t('detail.subtasks')}
                 </h3>
                 <ul className="mt-2 space-y-1">
                   {task.children.length === 0 && (
-                    <li className="text-sm text-fg-secondary">No subtasks yet.</li>
+                    <li className="text-sm text-fg-secondary">
+                      {t('detail.noSubtasks')}
+                    </li>
                   )}
                   {task.children.map((c) => (
                     <li
@@ -325,7 +340,7 @@ export function TaskDetailPanel({
                 <div className="mt-2 flex flex-col gap-2 sm:flex-row sm:items-center">
                   <input
                     className="min-w-0 flex-1 rounded-xl border border-edge bg-surface-panel px-3 py-2 text-sm leading-6 text-fg placeholder:text-fg-subtle focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
-                    placeholder="New subtask title"
+                    placeholder={t('detail.subtaskPlaceholder')}
                     value={subtaskTitle}
                     onChange={(e) => setSubtaskTitle(e.target.value)}
                     onKeyDown={(e) => {
@@ -351,21 +366,23 @@ export function TaskDetailPanel({
                       );
                     }}
                   >
-                    Add subtask
+                    {t('detail.addSubtask')}
                   </button>
                 </div>
               </div>
 
               <div>
                 <h3 className="text-sm font-semibold leading-6 text-fg">
-                  Dependencies
+                  {t('detail.dependencies')}
                 </h3>
                 <p className="mt-1 text-xs leading-5 text-fg-subtle">
-                  This task depends on prerequisites. Removing an edge updates the graph for everyone.
+                  {t('detail.depsHint')}
                 </p>
                 <ul className="mt-2 space-y-2">
                   {deps.length === 0 && (
-                    <li className="text-sm text-fg-secondary">No linked edges.</li>
+                    <li className="text-sm text-fg-secondary">
+                      {t('detail.noEdges')}
+                    </li>
                   )}
                   {deps.map((e) => {
                     if (e.taskId === task.id) {
@@ -375,18 +392,17 @@ export function TaskDetailPanel({
                           className="flex items-center justify-between gap-2 rounded-lg border border-edge-subtle px-2 py-1.5 text-sm text-fg-secondary"
                         >
                           <span>
-                            Depends on{' '}
-                            <span className="font-medium text-fg">
-                              {taskLabel(e.dependsOnId)}
-                            </span>{' '}
-                            <span className="text-fg-subtle">({e.type})</span>
+                            {t('detail.dependsOn', {
+                              id: taskLabel(e.dependsOnId),
+                              type: t(`detail.depType.${e.type}`),
+                            })}
                           </span>
                           <button
                             type="button"
                             className="shrink-0 rounded-lg px-2 py-1 text-xs font-medium text-fg-subtle transition-colors hover:bg-surface-hover hover:text-fg focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
                             onClick={() => removeDep.mutate(e.id)}
                           >
-                            Remove
+                            {t('actions.remove')}
                           </button>
                         </li>
                       );
@@ -397,18 +413,17 @@ export function TaskDetailPanel({
                         className="flex items-center justify-between gap-2 rounded-lg border border-edge-subtle px-2 py-1.5 text-sm text-fg-secondary"
                       >
                         <span>
-                          Required by{' '}
-                          <span className="font-medium text-fg">
-                            {taskLabel(e.taskId)}
-                          </span>{' '}
-                          <span className="text-fg-subtle">({e.type})</span>
+                          {t('detail.requiredBy', {
+                            id: taskLabel(e.taskId),
+                            type: t(`detail.depType.${e.type}`),
+                          })}
                         </span>
                         <button
                           type="button"
                           className="shrink-0 rounded-lg px-2 py-1 text-xs font-medium text-fg-subtle transition-colors hover:bg-surface-hover hover:text-fg focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
                           onClick={() => removeDep.mutate(e.id)}
                         >
-                          Remove
+                          {t('actions.remove')}
                         </button>
                       </li>
                     );
@@ -420,7 +435,7 @@ export function TaskDetailPanel({
                     value={dependsOnPick}
                     onChange={(e) => setDependsOnPick(e.target.value)}
                   >
-                    <option value="">Select prerequisite…</option>
+                    <option value="">{t('detail.prereqPlaceholder')}</option>
                     {allTasks
                       .filter((x) => x.id !== task.id)
                       .map((x) => (
@@ -447,14 +462,14 @@ export function TaskDetailPanel({
                       );
                     }}
                   >
-                    Link prerequisite
+                    {t('detail.linkPrereq')}
                   </button>
                 </div>
               </div>
 
               <div>
                 <h3 className="text-sm font-semibold leading-6 text-fg">
-                  Activity
+                  {t('detail.activity')}
                 </h3>
                 <div className="mt-2">
                   <MemoryTimeline items={memory} />
@@ -463,7 +478,7 @@ export function TaskDetailPanel({
                   <textarea
                     rows={3}
                     className="resize-y rounded-xl border border-edge bg-surface-panel px-3 py-2 text-sm leading-relaxed text-fg placeholder:text-fg-subtle focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
-                    placeholder="Add a note…"
+                    placeholder={t('detail.notePlaceholder')}
                     value={note}
                     onChange={(e) => setNote(e.target.value)}
                   />
@@ -478,7 +493,7 @@ export function TaskDetailPanel({
                       });
                     }}
                   >
-                    Add note
+                    {t('detail.addNote')}
                   </button>
                 </div>
               </div>
@@ -488,13 +503,13 @@ export function TaskDetailPanel({
                   type="button"
                   className="rounded-xl border border-edge bg-surface-panel px-4 py-2 text-sm font-medium text-fg transition-colors duration-150 hover:bg-surface-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-accent active:scale-95"
                   onClick={() => {
-                    if (!confirm('Delete this task?')) return;
+                    if (!confirm(t('detail.deleteConfirm'))) return;
                     delTask.mutate(task.id, {
                       onSuccess: () => onClose(),
                     });
                   }}
                 >
-                  Delete task
+                  {t('detail.deleteTask')}
                 </button>
               </div>
             </div>

@@ -1,5 +1,7 @@
 import clsx from 'clsx';
+import type { TFunction } from 'i18next';
 import { useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import type { ListTasksParams } from '../../api/client';
 import { TaskFilterBar } from '../Filters/TaskFilterBar';
 import { useTaskList } from '../../hooks/useTasks';
@@ -43,16 +45,20 @@ function assigneeGroupKey(task: Task): string {
   return `${task.assigneeType ?? 'member'}|${task.assigneeId}`;
 }
 
-function assigneeGroupLabel(key: string): string {
-  if (key === '__unassigned__') return 'Unassigned';
+function assigneeGroupLabel(key: string, t: TFunction): string {
+  if (key === '__unassigned__') return t('filters.unassigned');
   const [type, id] = key.split('|') as ['member' | 'agent', string];
   const m = WORKSPACE_MEMBERS.find((x) => x.id === id && x.type === type);
-  return m?.name ?? id;
+  if (m) return t(`members.${m.id}`, { defaultValue: m.name });
+  return id;
 }
 
-function primaryLabelGroup(task: Task): { key: string; label: string } {
+function primaryLabelGroup(
+  task: Task,
+  t: TFunction,
+): { key: string; label: string } {
   if (!task.labels.length) {
-    return { key: '__none__', label: 'No label' };
+    return { key: '__none__', label: t('list.noLabel') };
   }
   const sorted = [...task.labels].sort((a, b) =>
     a.name.localeCompare(b.name),
@@ -61,11 +67,15 @@ function primaryLabelGroup(task: Task): { key: string; label: string } {
   return { key: first.id, label: first.name };
 }
 
-function labelOrderForSections(tasks: Task[], labelCatalog: Label[]) {
+function labelOrderForSections(
+  tasks: Task[],
+  labelCatalog: Label[],
+  t: TFunction,
+) {
   const ids = new Set<string>();
-  for (const t of tasks) {
-    if (!t.labels.length) ids.add('__none__');
-    else ids.add(primaryLabelGroup(t).key);
+  for (const task of tasks) {
+    if (!task.labels.length) ids.add('__none__');
+    else ids.add(primaryLabelGroup(task, t).key);
   }
   const ordered: { key: string; label: string }[] = [];
   for (const l of [...labelCatalog].sort((a, b) =>
@@ -74,12 +84,13 @@ function labelOrderForSections(tasks: Task[], labelCatalog: Label[]) {
     if (ids.has(l.id)) ordered.push({ key: l.id, label: l.name });
   }
   if (ids.has('__none__')) {
-    ordered.unshift({ key: '__none__', label: 'No label' });
+    ordered.unshift({ key: '__none__', label: t('list.noLabel') });
   }
   return ordered;
 }
 
 export function ListView({ onOpenTask }: { onOpenTask: (id: string) => void }) {
+  const { t, i18n } = useTranslation();
   const taskFilters = useUiStore((s) => s.taskFilters);
   const selectionMode = useUiStore((s) => s.selectionMode);
   const selectedTaskIds = useUiStore((s) => s.selectedTaskIds);
@@ -105,13 +116,13 @@ export function ListView({ onOpenTask }: { onOpenTask: (id: string) => void }) {
   const sections = useMemo(() => {
     const sorted = sortTasks(tasks, sortKey);
     if (groupBy === 'none') {
-      return [{ key: 'all', label: 'All tasks', tasks: sorted }];
+      return [{ key: 'all', label: t('list.allTasks'), tasks: sorted }];
     }
     if (groupBy === 'status') {
       return STATUS_ORDER.map((status) => ({
         key: status,
-        label: statusLabel(status),
-        tasks: sorted.filter((t) => t.status === status),
+        label: statusLabel(status, t),
+        tasks: sorted.filter((task) => task.status === status),
       })).filter((s) => s.tasks.length > 0);
     }
     if (groupBy === 'priority') {
@@ -125,44 +136,47 @@ export function ListView({ onOpenTask }: { onOpenTask: (id: string) => void }) {
       return priorities
         .map((p) => ({
           key: p,
-          label: priorityLabel(p),
-          tasks: sorted.filter((t) => t.priority === p),
+          label: priorityLabel(p, t),
+          tasks: sorted.filter((task) => task.priority === p),
         }))
         .filter((s) => s.tasks.length > 0);
     }
     if (groupBy === 'assignee') {
       const keys = new Set(sorted.map(assigneeGroupKey));
       const ordered = [...keys].sort((a, b) =>
-        assigneeGroupLabel(a).localeCompare(assigneeGroupLabel(b)),
+        assigneeGroupLabel(a, t).localeCompare(
+          assigneeGroupLabel(b, t),
+          i18n.language,
+        ),
       );
       return ordered.map((key) => ({
         key,
-        label: assigneeGroupLabel(key),
-        tasks: sorted.filter((t) => assigneeGroupKey(t) === key),
+        label: assigneeGroupLabel(key, t),
+        tasks: sorted.filter((task) => assigneeGroupKey(task) === key),
       }));
     }
     const labelCatalog: Label[] = [];
-    for (const t of sorted) {
-      for (const l of t.labels) {
+    for (const task of sorted) {
+      for (const l of task.labels) {
         if (!labelCatalog.some((x) => x.id === l.id)) labelCatalog.push(l);
       }
     }
-    const order = labelOrderForSections(sorted, labelCatalog);
+    const order = labelOrderForSections(sorted, labelCatalog, t);
     return order
       .map(({ key, label }) => ({
         key,
         label,
-        tasks: sorted.filter((t) => primaryLabelGroup(t).key === key),
+        tasks: sorted.filter((task) => primaryLabelGroup(task, t).key === key),
       }))
       .filter((s) => s.tasks.length > 0);
-  }, [tasks, groupBy, sortKey]);
+  }, [tasks, groupBy, sortKey, t, i18n.language]);
 
   const colCount = selectionMode ? 6 : 5;
 
   if (isLoading) {
     return (
       <div className="rounded-xl border border-edge-subtle bg-surface-panel p-8 text-sm text-fg-secondary">
-        Loading tasks…
+        {t('loading.tasks')}
       </div>
     );
   }
@@ -180,31 +194,31 @@ export function ListView({ onOpenTask }: { onOpenTask: (id: string) => void }) {
       <TaskFilterBar />
       <div className="flex flex-wrap items-center gap-3">
         <label className="flex items-center gap-2 text-sm font-medium leading-6 text-fg">
-          <span className="text-fg-secondary">Group</span>
+          <span className="text-fg-secondary">{t('list.group')}</span>
           <select
             className="rounded-xl border border-edge bg-surface-panel px-3 py-2 text-sm leading-6 text-fg focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
             value={groupBy}
             onChange={(e) => setGroupBy(e.target.value as GroupBy)}
           >
-            <option value="none">None</option>
-            <option value="status">Status</option>
-            <option value="priority">Priority</option>
-            <option value="assignee">Assignee</option>
-            <option value="label">Label</option>
+            <option value="none">{t('list.groupNone')}</option>
+            <option value="status">{t('list.groupStatus')}</option>
+            <option value="priority">{t('list.groupPriority')}</option>
+            <option value="assignee">{t('list.groupAssignee')}</option>
+            <option value="label">{t('list.groupLabel')}</option>
           </select>
         </label>
         <label className="flex items-center gap-2 text-sm font-medium leading-6 text-fg">
-          <span className="text-fg-secondary">Sort</span>
+          <span className="text-fg-secondary">{t('list.sort')}</span>
           <select
             className="rounded-xl border border-edge bg-surface-panel px-3 py-2 text-sm leading-6 text-fg focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
             value={sortKey}
             onChange={(e) => setSortKey(e.target.value as SortKey)}
           >
-            <option value="updated_desc">Updated (newest)</option>
-            <option value="updated_asc">Updated (oldest)</option>
-            <option value="priority">Priority</option>
-            <option value="id">ID (#)</option>
-            <option value="title">Title</option>
+            <option value="updated_desc">{t('list.sortUpdatedDesc')}</option>
+            <option value="updated_asc">{t('list.sortUpdatedAsc')}</option>
+            <option value="priority">{t('list.sortPriority')}</option>
+            <option value="id">{t('list.sortId')}</option>
+            <option value="title">{t('list.sortTitle')}</option>
           </select>
         </label>
       </div>
@@ -214,13 +228,16 @@ export function ListView({ onOpenTask }: { onOpenTask: (id: string) => void }) {
           <thead className="border-b border-edge-subtle bg-surface-base text-fg-secondary">
             <tr>
               {selectionMode && (
-                <th className="w-10 px-2 py-2 font-medium" aria-label="Select" />
+                <th
+                  className="w-10 px-2 py-2 font-medium"
+                  aria-label={t('list.selectColAria')}
+                />
               )}
-              <th className="px-4 py-2 font-medium">ID</th>
-              <th className="px-4 py-2 font-medium">Title</th>
-              <th className="px-4 py-2 font-medium">Status</th>
-              <th className="px-4 py-2 font-medium">Priority</th>
-              <th className="px-4 py-2 font-medium">Updated</th>
+              <th className="px-4 py-2 font-medium">{t('list.colId')}</th>
+              <th className="px-4 py-2 font-medium">{t('list.colTitle')}</th>
+              <th className="px-4 py-2 font-medium">{t('list.colStatus')}</th>
+              <th className="px-4 py-2 font-medium">{t('list.colPriority')}</th>
+              <th className="px-4 py-2 font-medium">{t('list.colUpdated')}</th>
             </tr>
           </thead>
           {sections.map((section) => (
@@ -238,14 +255,14 @@ export function ListView({ onOpenTask }: { onOpenTask: (id: string) => void }) {
                   </td>
                 </tr>
               )}
-              {section.tasks.map((t) => (
+              {section.tasks.map((task) => (
                 <ListRow
-                  key={t.id}
-                  task={t}
+                  key={task.id}
+                  task={task}
                   onOpen={onOpenTask}
                   selectionMode={selectionMode}
-                  selected={selectedTaskIds.includes(t.id)}
-                  onToggleSelected={() => toggleTaskSelected(t.id)}
+                  selected={selectedTaskIds.includes(task.id)}
+                  onToggleSelected={() => toggleTaskSelected(task.id)}
                 />
               ))}
             </tbody>
@@ -269,6 +286,7 @@ function ListRow({
   selected: boolean;
   onToggleSelected: () => void;
 }) {
+  const { t } = useTranslation();
   const onRowClick = () => onOpen(task.id);
 
   return (
@@ -284,7 +302,7 @@ function ListRow({
             checked={selected}
             onChange={() => onToggleSelected()}
             onClick={(e) => e.stopPropagation()}
-            aria-label={`Select ${task.identifier}`}
+            aria-label={t('list.selectTaskAria', { id: task.identifier })}
           />
         </td>
       )}
@@ -306,10 +324,14 @@ function ListRow({
               task.status === 'cancelled' && 'bg-status-cancelled',
             )}
           />
-          <span className="text-fg-secondary">{task.status}</span>
+          <span className="text-fg-secondary">
+            {statusLabel(task.status, t)}
+          </span>
         </span>
       </td>
-      <td className="px-4 py-2 text-fg-secondary">{task.priority}</td>
+      <td className="px-4 py-2 text-fg-secondary">
+        {priorityLabel(task.priority, t)}
+      </td>
       <td className="px-4 py-2 text-fg-subtle">
         {new Date(task.updatedAt).toLocaleString()}
       </td>

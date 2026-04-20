@@ -1,0 +1,185 @@
+{
+  "app": {
+    "brand": "XOPC",
+    "tagline": "Task-native kanban",
+    "tasksTitle": "Tasks",
+    "headerHint": "⌘K command palette · C new · 1–3 views · B select · ? help · double-click card title to rename"
+  },
+  "nav": {
+    "board": "Board",
+    "list": "List",
+    "graph": "Graph"
+  },
+  "theme": {
+    "label": "Theme",
+    "system": "System",
+    "light": "Light",
+    "dark": "Dark"
+  },
+  "language": {
+    "label": "Language",
+    "en": "English",
+    "zh": "中文"
+  },
+  "actions": {
+    "select": "Select",
+    "selecting": "Selecting",
+    "newTask": "New task",
+    "cancel": "Cancel",
+    "create": "Create",
+    "delete": "Delete",
+    "clear": "Clear",
+    "remove": "Remove"
+  },
+  "createModal": {
+    "title": "New task",
+    "titlePlaceholder": "Title",
+    "closeAria": "Close create dialog"
+  },
+  "loading": {
+    "tasks": "Loading tasks…",
+    "graph": "Loading graph…",
+    "generic": "Loading…"
+  },
+  "filters": {
+    "priority": "Priority",
+    "assignee": "Assignee",
+    "label": "Label",
+    "all": "All",
+    "unassigned": "Unassigned",
+    "clear": "Clear filters"
+  },
+  "bulk": {
+    "selected": "{{count}} selected",
+    "setStatus": "Set status…",
+    "deleteConfirm": "Delete {{count}} tasks?",
+    "updateFailed": "Bulk update failed"
+  },
+  "shortcuts": {
+    "title": "Keyboard shortcuts",
+    "closeAria": "Close shortcuts",
+    "hint": "Shortcuts are disabled while typing in inputs. Graph view uses the same navigation keys.",
+    "cmdPalette": "Command palette",
+    "newTask": "New task",
+    "views": "Board / List / Graph",
+    "toggleSelect": "Toggle selection mode (board & list)",
+    "help": "Keyboard shortcuts",
+    "escape": "Close dialogs; clear bulk selection"
+  },
+  "command": {
+    "closeAria": "Close command palette",
+    "ariaLabel": "Command palette",
+    "searchPlaceholder": "Search tasks or choose an action…",
+    "sectionTasks": "Tasks",
+    "sectionNavigate": "Navigate",
+    "sectionActions": "Actions",
+    "boardView": "Board view",
+    "listView": "List view",
+    "graphView": "Graph view",
+    "newTask": "New task",
+    "themeCycle": "Theme: {{mode}} (cycle)",
+    "footer": "Esc close · ⌘K toggle"
+  },
+  "list": {
+    "group": "Group",
+    "sort": "Sort",
+    "groupNone": "None",
+    "groupStatus": "Status",
+    "groupPriority": "Priority",
+    "groupAssignee": "Assignee",
+    "groupLabel": "Label",
+    "sortUpdatedDesc": "Updated (newest)",
+    "sortUpdatedAsc": "Updated (oldest)",
+    "sortPriority": "Priority",
+    "sortId": "ID (#)",
+    "sortTitle": "Title",
+    "allTasks": "All tasks",
+    "noLabel": "No label",
+    "colId": "ID",
+    "colTitle": "Title",
+    "colStatus": "Status",
+    "colPriority": "Priority",
+    "colUpdated": "Updated",
+    "selectColAria": "Select",
+    "selectTaskAria": "Select {{id}}"
+  },
+  "graph": {
+    "anchor": "Anchor task",
+    "selectPlaceholder": "Select…",
+    "hint": "Arrows point from prerequisite → dependent. Connected component around the anchor.",
+    "empty": "Create a task to view the dependency graph.",
+    "svgAria": "Task dependency graph"
+  },
+  "contextMenu": {
+    "aria": "Task actions for {{id}}",
+    "openDetail": "Open detail",
+    "status": "Status",
+    "assign": "Assign",
+    "unassign": "Unassign",
+    "delete": "Delete…",
+    "statusArrow": "→ {{label}}"
+  },
+  "detail": {
+    "closeAria": "Close detail",
+    "title": "Task detail",
+    "fieldTitle": "Title",
+    "fieldDescription": "Description",
+    "fieldAssignee": "Assignee",
+    "assigneeNone": "Unassigned",
+    "labels": "Labels",
+    "newLabel": "New label",
+    "labelNamePh": "Name",
+    "labelColor": "Color",
+    "labelCreateAdd": "Create and add",
+    "fieldStatus": "Status",
+    "subtasks": "Subtasks",
+    "noSubtasks": "No subtasks yet.",
+    "subtaskPlaceholder": "New subtask title",
+    "addSubtask": "Add subtask",
+    "dependencies": "Dependencies",
+    "depsHint": "This task depends on prerequisites. Removing an edge updates the graph for everyone.",
+    "noEdges": "No linked edges.",
+    "dependsOn": "Depends on {{id}} ({{type}})",
+    "requiredBy": "Required by {{id}} ({{type}})",
+    "prereqPlaceholder": "Select prerequisite…",
+    "linkPrereq": "Link prerequisite",
+    "activity": "Activity",
+    "notePlaceholder": "Add a note…",
+    "addNote": "Add note",
+    "deleteTask": "Delete task",
+    "deleteConfirm": "Delete this task?",
+    "labelCreateErr": "Could not create label",
+    "depType": {
+      "blocks": "blocks",
+      "blocked_by": "blocked by",
+      "related": "related"
+    }
+  },
+  "memory": {
+    "empty": "No activity yet. Add a note below.",
+    "typeNote": "Note",
+    "typeStatus": "Status",
+    "typeProgress": "Progress",
+    "typeSystem": "System"
+  },
+  "members": {
+    "local-user": "You",
+    "agent-demo": "Demo Agent"
+  },
+  "status": {
+    "backlog": "Backlog",
+    "todo": "Todo",
+    "in_progress": "In progress",
+    "in_review": "Review",
+    "blocked": "Blocked",
+    "done": "Done",
+    "cancelled": "Cancelled"
+  },
+  "priority": {
+    "urgent": "Urgent",
+    "high": "High",
+    "medium": "Medium",
+    "low": "Low",
+    "none": "No priority"
+  }
+}

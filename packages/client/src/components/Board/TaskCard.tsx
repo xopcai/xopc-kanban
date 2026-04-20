@@ -2,6 +2,8 @@ import { useDraggable } from '@dnd-kit/core';
 import clsx from 'clsx';
 import type { MouseEvent } from 'react';
 import { useEffect, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
+import { statusLabel } from '../../lib/taskOrdering';
 import type { Task } from '../../types';
 
 const priorityBar: Record<string, string> = {
@@ -28,6 +30,7 @@ export function TaskCard({
   onToggleSelect: (id: string) => void;
   onContextMenu: (task: Task, e: MouseEvent) => void;
 }) {
+  const { t } = useTranslation();
   const { attributes, listeners, setNodeRef, transform, isDragging } =
     useDraggable({
       id: task.id,
@@ -79,7 +82,7 @@ export function TaskCard({
           onPointerDown={(e) => e.stopPropagation()}
           onClick={(e) => e.stopPropagation()}
           className="mt-1.5 h-4 w-4 shrink-0 rounded border-edge text-accent focus:ring-accent"
-          aria-label={`Select ${task.identifier}`}
+          aria-label={t('list.selectTaskAria', { id: task.identifier })}
         />
       )}
       <div
@@ -138,7 +141,7 @@ export function TaskCard({
               task.status === 'done' && 'bg-status-done',
               task.status === 'cancelled' && 'bg-status-cancelled',
             )}
-            title={task.status}
+            title={statusLabel(task.status, t)}
           />
           <div className="min-w-0 flex-1">
             <p className="text-xs leading-5 text-fg-subtle">{task.identifier}</p>
