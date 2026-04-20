@@ -1,7 +1,7 @@
 import MDEditor from '@uiw/react-md-editor';
 import '@uiw/react-md-editor/markdown-editor.css';
 import { X } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   useAddDependency,
@@ -17,10 +17,11 @@ import {
   useTaskDetail,
   useTaskList,
   useTaskMemory,
+  useWorkspaceActors,
 } from '../../hooks/useTasks';
 import { useIsDark } from '../../hooks/useIsDark';
+import { actorsToWorkspaceMembers } from '../../lib/members';
 import { statusLabel } from '../../lib/taskOrdering';
-import { WORKSPACE_MEMBERS } from '../../lib/members';
 import type { TaskStatus } from '../../types';
 import { MemoryTimeline } from './MemoryTimeline';
 
@@ -56,6 +57,11 @@ export function TaskDetailPanel({
   const { data: allLabels = [] } = useLabels();
   const createLabel = useCreateLabel();
   const isDark = useIsDark();
+  const { data: actors } = useWorkspaceActors();
+  const workspaceMembers = useMemo(
+    () => (actors ? actorsToWorkspaceMembers(actors) : []),
+    [actors],
+  );
 
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
@@ -201,7 +207,7 @@ export function TaskDetailPanel({
                   }}
                 >
                   <option value="">{t('detail.assigneeNone')}</option>
-                  {WORKSPACE_MEMBERS.map((m) => (
+                  {workspaceMembers.map((m) => (
                     <option key={`${m.type}-${m.id}`} value={`${m.type}|${m.id}`}>
                       {t(`members.${m.id}`, { defaultValue: m.name })}
                     </option>

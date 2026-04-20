@@ -4,8 +4,8 @@ import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { ListTasksParams } from '../../api/client';
 import { TaskFilterBar } from '../Filters/TaskFilterBar';
-import { useTaskList } from '../../hooks/useTasks';
-import { WORKSPACE_MEMBERS } from '../../lib/members';
+import { useTaskList, useWorkspaceActors } from '../../hooks/useTasks';
+import { actorsToWorkspaceMembers } from '../../lib/members';
 import {
   comparePriority,
   priorityLabel,
@@ -14,6 +14,7 @@ import {
 } from '../../lib/taskOrdering';
 import { useUiStore } from '../../store/uiStore';
 import type { Label, Task, TaskPriority } from '../../types';
+import type { WorkspaceMember } from '../../lib/members';
 
 type GroupBy = 'none' | 'status' | 'priority' | 'assignee' | 'label';
 type SortKey = 'updated_desc' | 'updated_asc' | 'priority' | 'id' | 'title';
@@ -45,10 +46,14 @@ function assigneeGroupKey(task: Task): string {
   return `${task.assigneeType ?? 'member'}|${task.assigneeId}`;
 }
 
-function assigneeGroupLabel(key: string, t: TFunction): string {
+function assigneeGroupLabel(
+  key: string,
+  workspaceMembers: WorkspaceMember[],
+  t: TFunction,
+): string {
   if (key === '__unassigned__') return t('filters.unassigned');
   const [type, id] = key.split('|') as ['member' | 'agent', string];
-  const m = WORKSPACE_MEMBERS.find((x) => x.id === id && x.type === type);
+  const m = workspaceMembers.find((x) => x.id === id && x.type === type);
   if (m) return t(`members.${m.id}`, { defaultValue: m.name });
   return id;
 }
@@ -109,6 +114,11 @@ export function ListView({ onOpenTask }: { onOpenTask: (id: string) => void }) {
     true,
     listFilters,
   );
+  const { data: actors } = useWorkspaceActors();
+  const workspaceMembers = useMemo(
+    () => (actors ? actorsToWorkspaceMembers(actors) : []),
+    [actors],
+  );
 
   const [groupBy, setGroupBy] = useState<GroupBy>('status');
   const [sortKey, setSortKey] = useState<SortKey>('updated_desc');
@@ -144,14 +154,14 @@ export function ListView({ onOpenTask }: { onOpenTask: (id: string) => void }) {
     if (groupBy === 'assignee') {
       const keys = new Set(sorted.map(assigneeGroupKey));
       const ordered = [...keys].sort((a, b) =>
-        assigneeGroupLabel(a, t).localeCompare(
-          assigneeGroupLabel(b, t),
+        assigneeGroupLabel(a, workspaceMembers, t).localeCompare(
+          assigneeGroupLabel(b, workspaceMembers, t),
           i18n.language,
         ),
       );
       return ordered.map((key) => ({
         key,
-        label: assigneeGroupLabel(key, t),
+        label: assigneeGroupLabel(key, workspaceMembers, t),
         tasks: sorted.filter((task) => assigneeGroupKey(task) === key),
       }));
     }
@@ -169,7 +179,7 @@ export function ListView({ onOpenTask }: { onOpenTask: (id: string) => void }) {
         tasks: sorted.filter((task) => primaryLabelGroup(task, t).key === key),
       }))
       .filter((s) => s.tasks.length > 0);
-  }, [tasks, groupBy, sortKey, t, i18n.language]);
+  }, [tasks, groupBy, sortKey, t, i18n.language, workspaceMembers]);
 
   const colCount = selectionMode ? 6 : 5;
 

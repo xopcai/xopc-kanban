@@ -21,6 +21,25 @@
     "en": "English",
     "zh": "中文"
   },
+  "auth": {
+    "title": "Sign in",
+    "registerTitle": "Create account",
+    "email": "Email",
+    "password": "Password (min 8 characters)",
+    "displayName": "Display name",
+    "signIn": "Sign in",
+    "signUp": "Create account",
+    "toggleRegister": "Need an account? Register",
+    "toggleLogin": "Already have an account? Sign in",
+    "logout": "Log out",
+    "loading": "Loading…",
+    "error": "Something went wrong",
+    "agents": "Agents",
+    "newAgent": "New agent",
+    "agentNamePlaceholder": "Agent name",
+    "agentCreated": "Agent created. Save this API key — it will not be shown again:",
+    "close": "Close"
+  },
   "actions": {
     "select": "Select",
     "selecting": "Selecting",

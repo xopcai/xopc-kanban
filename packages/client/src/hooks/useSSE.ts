@@ -1,15 +1,18 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { useEffect } from 'react';
 import type { TaskEvent } from '../types';
+import { useAuthStore } from '../store/authStore';
 import { taskKeys } from './useTasks';
 
 export function useTaskEventsStream(enabled = true) {
   const qc = useQueryClient();
+  const token = useAuthStore((s) => s.token);
 
   useEffect(() => {
-    if (!enabled) return;
+    if (!enabled || !token) return;
 
-    const es = new EventSource('/api/events');
+    const url = `/api/events?access_token=${encodeURIComponent(token)}`;
+    const es = new EventSource(url);
 
     const onMessage = (ev: MessageEvent) => {
       try {
@@ -33,5 +36,5 @@ export function useTaskEventsStream(enabled = true) {
       es.removeEventListener('message', onMessage);
       es.close();
     };
-  }, [enabled, qc]);
+  }, [enabled, qc, token]);
 }

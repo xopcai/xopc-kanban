@@ -5,7 +5,21 @@ import {
 } from '@tanstack/react-query';
 import type { ListTasksParams } from '../api/client';
 import { api } from '../api/client';
+import { useAuthStore } from '../store/authStore';
 import type { DependencyType, TaskStatus } from '../types';
+
+export const workspaceKeys = {
+  actors: ['workspace', 'actors'] as const,
+};
+
+export function useWorkspaceActors() {
+  const token = useAuthStore((s) => s.token);
+  return useQuery({
+    queryKey: workspaceKeys.actors,
+    queryFn: () => api.listWorkspaceActors(),
+    enabled: Boolean(token),
+  });
+}
 
 export const taskKeys = {
   all: ['tasks'] as const,

@@ -33,6 +33,47 @@ export const project = sqliteTable(
   (t) => [index('idx_project_position').on(t.position)],
 );
 
+export const member = sqliteTable(
+  'member',
+  {
+    id: text('id').primaryKey(),
+    email: text('email').notNull().unique(),
+    passwordHash: text('password_hash').notNull(),
+    displayName: text('display_name').notNull(),
+    createdAt: text('created_at').notNull(),
+    updatedAt: text('updated_at').notNull(),
+  },
+  (t) => [index('idx_member_email').on(t.email)],
+);
+
+export const agent = sqliteTable(
+  'agent',
+  {
+    id: text('id').primaryKey(),
+    name: text('name').notNull(),
+    description: text('description'),
+    createdByMemberId: text('created_by_member_id').references(() => member.id, {
+      onDelete: 'set null',
+    }),
+    createdAt: text('created_at').notNull(),
+    updatedAt: text('updated_at').notNull(),
+  },
+  (t) => [index('idx_agent_created_by').on(t.createdByMemberId)],
+);
+
+export const agentCredential = sqliteTable(
+  'agent_credential',
+  {
+    id: text('id').primaryKey(),
+    agentId: text('agent_id')
+      .notNull()
+      .references(() => agent.id, { onDelete: 'cascade' }),
+    secretHash: text('secret_hash').notNull(),
+    createdAt: text('created_at').notNull(),
+  },
+  (t) => [index('idx_agent_credential_agent').on(t.agentId)],
+);
+
 export const label = sqliteTable('label', {
   id: text('id').primaryKey(),
   name: text('name').notNull(),

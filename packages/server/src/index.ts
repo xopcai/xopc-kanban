@@ -5,9 +5,12 @@ import { logger } from 'hono/logger';
 import './db/client.js';
 import { seedLabelsIfEmpty } from './db/seed.js';
 import { agentRouter } from './routes/agent.js';
+import { agentsRouter } from './routes/agents.js';
+import { authRouter } from './routes/auth.js';
 import { eventsRouter } from './routes/events.js';
 import { labelsRouter } from './routes/labels.js';
 import { tasksRouter } from './routes/tasks.js';
+import { workspaceRouter } from './routes/workspace.js';
 
 seedLabelsIfEmpty();
 
@@ -19,12 +22,15 @@ app.use(
   cors({
     origin: (origin) => origin ?? '*',
     allowMethods: ['GET', 'POST', 'PATCH', 'DELETE', 'OPTIONS'],
-    allowHeaders: ['Content-Type'],
+    allowHeaders: ['Content-Type', 'Authorization'],
   }),
 );
 
 app.get('/health', (c) => c.json({ ok: true }));
 
+app.route('/api/auth', authRouter);
+app.route('/api/agents', agentsRouter);
+app.route('/api/workspace', workspaceRouter);
 app.route('/api/tasks', tasksRouter);
 app.route('/api/labels', labelsRouter);
 app.route('/api/events', eventsRouter);

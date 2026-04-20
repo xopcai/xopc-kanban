@@ -1,9 +1,12 @@
 import { Hono } from 'hono';
 import { streamSSE } from 'hono/streaming';
+import { requireAuth } from '../middleware/auth.js';
 import { eventBus } from '../services/EventBus.js';
+import type { Actor } from '../types/actor.js';
 import type { TaskEvent } from '../types/index.js';
 
-export const eventsRouter = new Hono()
+export const eventsRouter = new Hono<{ Variables: { actor: Actor } }>()
+  .use('*', requireAuth)
   .get('/', (c) =>
     streamSSE(c, async (stream) => {
       const listener = async (ev: TaskEvent) => {

@@ -1,3 +1,5 @@
+import { useAuthStore } from '../store/authStore';
+import type { AuthUser } from '../store/authStore';
 import type {
   DependencyType,
   Label,
@@ -9,7 +11,37 @@ import type {
   TaskStatus,
 } from '../types';
 
-const jsonHeaders = { 'Content-Type': 'application/json' };
+function shouldClearSessionOn401(url: string): boolean {
+  return (
+    !url.includes('/api/auth/login') &&
+    !url.includes('/api/auth/register') &&
+    !url.includes('/api/auth/agent/exchange')
+  );
+}
+
+export async function apiFetch(
+  input: string,
+  init?: RequestInit,
+): Promise<Response> {
+  const token = useAuthStore.getState().token;
+  const headers = new Headers(init?.headers);
+  const method = (init?.method ?? 'GET').toUpperCase();
+  if (
+    method !== 'GET' &&
+    method !== 'HEAD' &&
+    !headers.has('Content-Type')
+  ) {
+    headers.set('Content-Type', 'application/json');
+  }
+  if (token) {
+    headers.set('Authorization', `Bearer ${token}`);
+  }
+  const res = await fetch(input, { ...init, headers });
+  if (res.status === 401 && shouldClearSessionOn401(input)) {
+    useAuthStore.getState().clearSession();
+  }
+  return res;
+}
 
 async function parseJson<T>(res: Response): Promise<T> {
   if (!res.ok) {
@@ -39,9 +71,70 @@ function buildTaskQuery(params?: ListTasksParams): string {
   return s ? `?${s}` : '';
 }
 
+export type WorkspaceActorsResponse = {
+  members: {
+    type: 'member';
+    id: string;
+    displayName: string;
+    email: string;
+  }[];
+  agents: { type: 'agent'; id: string; name: string }[];
+};
+
 export const api = {
+  register(body: { email: string; password: string; displayName: string }) {
+    return apiFetch('/api/auth/register', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }).then((r) =>
+      parseJson<{ token: string; user: { id: string; email: string; displayName: string } }>(
+        r,
+      ),
+    );
+  },
+
+  login(body: { email: string; password: string }) {
+    return apiFetch('/api/auth/login', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }).then((r) =>
+      parseJson<{ token: string; user: { id: string; email: string; displayName: string } }>(
+        r,
+      ),
+    );
+  },
+
+  me() {
+    return apiFetch('/api/auth/me').then((r) => parseJson<AuthUser>(r));
+  },
+
+  listWorkspaceActors() {
+    return apiFetch('/api/workspace/actors').then((r) =>
+      parseJson<WorkspaceActorsResponse>(r),
+    );
+  },
+
+  createAgent(body: { name: string }) {
+    return apiFetch('/api/agents', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }).then(
+      (r) =>
+        parseJson<{
+          agent: { id: string; name: string; description: string | null };
+          apiKey: string;
+        }>(r),
+    );
+  },
+
+  listAgents() {
+    return apiFetch('/api/agents').then(
+      (r) => parseJson<{ id: string; name: string; description: string | null }[]>(r),
+    );
+  },
+
   listTasks(params?: ListTasksParams) {
-    return fetch(`/api/tasks${buildTaskQuery(params)}`).then((r) =>
+    return apiFetch(`/api/tasks${buildTaskQuery(params)}`).then((r) =>
       parseJson<Task[]>(r),
     );
   },
@@ -51,33 +144,31 @@ export const api = {
     action: 'delete' | 'set_status';
     status?: TaskStatus;
   }) {
-    return fetch('/api/tasks/batch', {
+    return apiFetch('/api/tasks/batch', {
       method: 'POST',
-      headers: jsonHeaders,
       body: JSON.stringify(body),
     }).then((r) => parseJson<{ ok: boolean }>(r));
   },
 
   listLabels() {
-    return fetch('/api/labels').then((r) => parseJson<Label[]>(r));
+    return apiFetch('/api/labels').then((r) => parseJson<Label[]>(r));
   },
 
   createLabel(body: { name: string; color: string }) {
-    return fetch('/api/labels', {
+    return apiFetch('/api/labels', {
       method: 'POST',
-      headers: jsonHeaders,
       body: JSON.stringify(body),
     }).then((r) => parseJson<Label>(r));
   },
 
   getTaskGraph(taskId: string) {
-    return fetch(`/api/tasks/${taskId}/graph`).then((r) =>
+    return apiFetch(`/api/tasks/${taskId}/graph`).then((r) =>
       parseJson<TaskGraphResponse>(r),
     );
   },
 
   listDependencies(taskId: string) {
-    return fetch(`/api/tasks/${taskId}/dependencies`).then((r) =>
+    return apiFetch(`/api/tasks/${taskId}/dependencies`).then((r) =>
       parseJson<TaskDependencyEdge[]>(r),
     );
   },
@@ -86,15 +177,14 @@ export const api = {
     taskId: string,
     body: { dependsOnId: string; type?: DependencyType },
   ) {
-    return fetch(`/api/tasks/${taskId}/dependencies`, {
+    return apiFetch(`/api/tasks/${taskId}/dependencies`, {
       method: 'POST',
-      headers: jsonHeaders,
       body: JSON.stringify(body),
     }).then((r) => parseJson<TaskDependencyEdge>(r));
   },
 
   removeDependency(taskId: string, edgeId: string) {
-    return fetch(`/api/tasks/${taskId}/dependencies/${edgeId}`, {
+    return apiFetch(`/api/tasks/${taskId}/dependencies/${edgeId}`, {
       method: 'DELETE',
     }).then((r) => {
       if (!r.ok) throw new Error(r.statusText);
@@ -102,7 +192,7 @@ export const api = {
   },
 
   getTask(id: string) {
-    return fetch(`/api/tasks/${id}`).then((r) => parseJson<Task>(r));
+    return apiFetch(`/api/tasks/${id}`).then((r) => parseJson<Task>(r));
   },
 
   createTask(body: {
@@ -114,9 +204,8 @@ export const api = {
     parentId?: string | null;
     labelIds?: string[];
   }) {
-    return fetch('/api/tasks', {
+    return apiFetch('/api/tasks', {
       method: 'POST',
-      headers: jsonHeaders,
       body: JSON.stringify(body),
     }).then((r) => parseJson<Task>(r));
   },
@@ -125,9 +214,8 @@ export const api = {
     parentId: string,
     body: { title: string; description?: string | null },
   ) {
-    return fetch(`/api/tasks/${parentId}/subtasks`, {
+    return apiFetch(`/api/tasks/${parentId}/subtasks`, {
       method: 'POST',
-      headers: jsonHeaders,
       body: JSON.stringify(body),
     }).then((r) => parseJson<Task>(r));
   },
@@ -145,43 +233,40 @@ export const api = {
       labelIds: string[];
     }>,
   ) {
-    return fetch(`/api/tasks/${id}`, {
+    return apiFetch(`/api/tasks/${id}`, {
       method: 'PATCH',
-      headers: jsonHeaders,
       body: JSON.stringify(body),
     }).then((r) => parseJson<Task>(r));
   },
 
   setTaskStatus(id: string, status: TaskStatus, note?: string) {
-    return fetch(`/api/tasks/${id}/status`, {
+    return apiFetch(`/api/tasks/${id}/status`, {
       method: 'PATCH',
-      headers: jsonHeaders,
       body: JSON.stringify({ status, note }),
     }).then((r) => parseJson<Task>(r));
   },
 
   deleteTask(id: string) {
-    return fetch(`/api/tasks/${id}`, { method: 'DELETE' }).then((r) => {
+    return apiFetch(`/api/tasks/${id}`, { method: 'DELETE' }).then((r) => {
       if (!r.ok) throw new Error(r.statusText);
     });
   },
 
   listMemory(taskId: string) {
-    return fetch(`/api/tasks/${taskId}/memory`).then((r) =>
+    return apiFetch(`/api/tasks/${taskId}/memory`).then((r) =>
       parseJson<TaskComment[]>(r),
     );
   },
 
   addMemory(taskId: string, content: string) {
-    return fetch(`/api/tasks/${taskId}/memory`, {
+    return apiFetch(`/api/tasks/${taskId}/memory`, {
       method: 'POST',
-      headers: jsonHeaders,
       body: JSON.stringify({ content }),
     }).then((r) => parseJson<TaskComment>(r));
   },
 
   deleteMemory(taskId: string, memId: string) {
-    return fetch(`/api/tasks/${taskId}/memory/${memId}`, {
+    return apiFetch(`/api/tasks/${taskId}/memory/${memId}`, {
       method: 'DELETE',
     }).then((r) => {
       if (!r.ok) throw new Error(r.statusText);

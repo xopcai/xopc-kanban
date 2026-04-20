@@ -1,8 +1,10 @@
 import { zValidator } from '@hono/zod-validator';
 import { Hono } from 'hono';
 import { z } from 'zod';
+import { requireAuth } from '../middleware/auth.js';
 import { memoryService } from '../services/MemoryService.js';
 import { taskService } from '../services/TaskService.js';
+import type { Actor } from '../types/actor.js';
 import type { TaskPriority, TaskStatus } from '../types/index.js';
 
 const dependencyBody = z.object({
@@ -85,7 +87,8 @@ const batchBody = z.object({
   status: taskStatusZ.optional(),
 });
 
-export const tasksRouter = new Hono()
+export const tasksRouter = new Hono<{ Variables: { actor: Actor } }>()
+  .use('*', requireAuth)
   .get('/', async (c) => {
     const status = c.req.query('status') as TaskStatus | undefined;
     const priority = c.req.query('priority') as TaskPriority | undefined;
@@ -112,7 +115,7 @@ export const tasksRouter = new Hono()
   })
   .post('/', zValidator('json', createBody), async (c) => {
     const body = c.req.valid('json');
-    const task = await taskService.create(body);
+    const task = await taskService.create(body, c.get('actor'));
     return c.json(task, 201);
   })
   .post('/batch', zValidator('json', batchBody), async (c) => {
@@ -173,7 +176,7 @@ export const tasksRouter = new Hono()
     const body = c.req.valid('json');
     const task = await taskService.getById(c.req.param('id'));
     if (!task) return c.json({ error: 'Not found' }, 404);
-    const entry = await memoryService.add(c.req.param('id'), body);
+    const entry = await memoryService.add(c.req.param('id'), body, c.get('actor'));
     return c.json(entry, 201);
   })
   .delete('/:id/memory/:memId', async (c) => {
@@ -189,7 +192,12 @@ export const tasksRouter = new Hono()
   .patch('/:id/status', zValidator('json', statusBody), async (c) => {
     const { status, note } = c.req.valid('json');
     try {
-      const task = await taskService.setStatus(c.req.param('id'), status, note);
+      const task = await taskService.setStatus(
+        c.req.param('id'),
+        status,
+        c.get('actor'),
+        note,
+      );
       if (!task) return c.json({ error: 'Not found' }, 404);
       return c.json(task);
     } catch (e) {
@@ -199,7 +207,11 @@ export const tasksRouter = new Hono()
   })
   .post('/:id/subtasks', zValidator('json', subtaskBody), async (c) => {
     const body = c.req.valid('json');
-    const task = await taskService.createSubtask(c.req.param('id'), body);
+    const task = await taskService.createSubtask(
+      c.req.param('id'),
+      body,
+      c.get('actor'),
+    );
     if (!task) return c.json({ error: 'Parent not found' }, 404);
     return c.json(task, 201);
   })

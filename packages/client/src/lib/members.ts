@@ -1,3 +1,4 @@
+import type { WorkspaceActorsResponse } from '../api/client';
 import type { ActorType } from '../types';
 
 export interface WorkspaceMember {
@@ -6,8 +7,19 @@ export interface WorkspaceMember {
   type: ActorType;
 }
 
-/** MVP workspace directory — assignee picker */
-export const WORKSPACE_MEMBERS: WorkspaceMember[] = [
-  { id: 'local-user', name: 'You', type: 'member' },
-  { id: 'agent-demo', name: 'Demo Agent', type: 'agent' },
-];
+export function actorsToWorkspaceMembers(
+  a: WorkspaceActorsResponse,
+): WorkspaceMember[] {
+  return [
+    ...a.members.map((m) => ({
+      id: m.id,
+      name: m.displayName,
+      type: 'member' as const,
+    })),
+    ...a.agents.map((g) => ({
+      id: g.id,
+      name: g.name,
+      type: 'agent' as const,
+    })),
+  ];
+}

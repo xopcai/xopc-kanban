@@ -3,7 +3,7 @@ import { useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { Task, TaskStatus } from '../../types';
 import { STATUS_ORDER, statusLabel } from '../../lib/taskOrdering';
-import { WORKSPACE_MEMBERS } from '../../lib/members';
+import type { WorkspaceMember } from '../../lib/members';
 
 const menuStatuses = STATUS_ORDER.filter((s) => s !== 'cancelled');
 
@@ -16,6 +16,7 @@ export function TaskContextMenu({
   onSetStatus,
   onAssign,
   onDelete,
+  workspaceMembers,
 }: {
   task: Task;
   x: number;
@@ -25,6 +26,7 @@ export function TaskContextMenu({
   onSetStatus: (s: TaskStatus) => void;
   onAssign: (memberId: string | null, type: 'member' | 'agent' | null) => void;
   onDelete: () => void;
+  workspaceMembers: WorkspaceMember[];
 }) {
   const { t } = useTranslation();
   const ref = useRef<HTMLDivElement>(null);
@@ -101,9 +103,9 @@ export function TaskContextMenu({
       >
         {t('contextMenu.unassign')}
       </button>
-      {WORKSPACE_MEMBERS.map((m) => (
+      {workspaceMembers.map((m) => (
         <button
-          key={m.id}
+          key={`${m.type}-${m.id}`}
           type="button"
           className="block w-full px-3 py-1.5 text-left text-sm text-fg-secondary hover:bg-surface-hover focus:outline-none"
           onClick={() => {

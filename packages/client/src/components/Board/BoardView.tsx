@@ -9,6 +9,7 @@ import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { ListTasksParams } from '../../api/client';
 import type { Task, TaskStatus } from '../../types';
+import { actorsToWorkspaceMembers } from '../../lib/members';
 import { STATUS_ORDER } from '../../lib/taskOrdering';
 import { TaskFilterBar } from '../Filters/TaskFilterBar';
 import {
@@ -17,6 +18,7 @@ import {
   useSetTaskStatus,
   useTaskList,
   useUpdateTaskTitle,
+  useWorkspaceActors,
 } from '../../hooks/useTasks';
 import { useUiStore } from '../../store/uiStore';
 import { BoardColumn } from './BoardColumn';
@@ -48,6 +50,11 @@ export function BoardView({ onOpenTask }: { onOpenTask: (id: string) => void }) 
   const rename = useUpdateTaskTitle();
   const quickPatch = useQuickPatchTask();
   const delTask = useDeleteTask();
+  const { data: actors } = useWorkspaceActors();
+  const workspaceMembers = useMemo(
+    () => (actors ? actorsToWorkspaceMembers(actors) : []),
+    [actors],
+  );
 
   const [menu, setMenu] = useState<{
     task: Task;
@@ -127,6 +134,7 @@ export function BoardView({ onOpenTask }: { onOpenTask: (id: string) => void }) 
           task={menu.task}
           x={menu.x}
           y={menu.y}
+          workspaceMembers={workspaceMembers}
           onClose={() => setMenu(null)}
           onOpenDetail={() => onOpenTask(menu.task.id)}
           onSetStatus={(s) =>

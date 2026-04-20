@@ -1,8 +1,9 @@
 import clsx from 'clsx';
+import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useLabels } from '../../hooks/useTasks';
+import { useLabels, useWorkspaceActors } from '../../hooks/useTasks';
+import { actorsToWorkspaceMembers } from '../../lib/members';
 import { priorityLabel } from '../../lib/taskOrdering';
-import { WORKSPACE_MEMBERS } from '../../lib/members';
 import type { TaskPriority } from '../../types';
 import { useUiStore } from '../../store/uiStore';
 
@@ -20,6 +21,11 @@ export function TaskFilterBar({ className }: { className?: string }) {
   const setTaskFilters = useUiStore((s) => s.setTaskFilters);
   const resetTaskFilters = useUiStore((s) => s.resetTaskFilters);
   const { data: labels = [] } = useLabels();
+  const { data: actors } = useWorkspaceActors();
+  const workspaceMembers = useMemo(
+    () => (actors ? actorsToWorkspaceMembers(actors) : []),
+    [actors],
+  );
 
   const active =
     filters.priority !== '' ||
@@ -69,8 +75,8 @@ export function TaskFilterBar({ className }: { className?: string }) {
         >
           <option value="">{t('filters.all')}</option>
           <option value="__none__">{t('filters.unassigned')}</option>
-          {WORKSPACE_MEMBERS.map((m) => (
-            <option key={m.id} value={m.id}>
+          {workspaceMembers.map((m) => (
+            <option key={`${m.type}-${m.id}`} value={m.id}>
               {t(`members.${m.id}`, { defaultValue: m.name })}
             </option>
           ))}

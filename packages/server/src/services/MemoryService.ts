@@ -2,6 +2,7 @@ import { asc, eq } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 import { db } from '../db/client.js';
 import * as t from '../db/schema.js';
+import type { Actor } from '../types/actor.js';
 import type { CommentType, TaskComment } from '../types/index.js';
 import { eventBus } from './EventBus.js';
 
@@ -23,8 +24,6 @@ function mapRow(row: typeof t.taskComment.$inferSelect): TaskComment {
   };
 }
 
-const DEFAULT_AUTHOR = { type: 'member' as const, id: 'local-user' };
-
 export class MemoryService {
   async list(taskId: string): Promise<TaskComment[]> {
     const rows = await db
@@ -38,6 +37,7 @@ export class MemoryService {
   async add(
     taskId: string,
     input: { content: string; type?: CommentType; parentId?: string | null },
+    author: Actor,
   ): Promise<TaskComment> {
     const id = nanoid();
     const ts = nowIso();
@@ -46,8 +46,8 @@ export class MemoryService {
     await db.insert(t.taskComment).values({
       id,
       taskId,
-      authorType: DEFAULT_AUTHOR.type,
-      authorId: DEFAULT_AUTHOR.id,
+      authorType: author.type,
+      authorId: author.id,
       content: input.content,
       type,
       parentId: input.parentId ?? null,

@@ -8,9 +8,12 @@ import {
   Plus,
   Sun,
 } from 'lucide-react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { api } from './api/client';
 import type { AppLocale } from './i18n/config';
+import { LoginScreen } from './components/Auth/LoginScreen';
 import { BoardView } from './components/Board/BoardView';
 import { BulkActionsBar } from './components/Board/BulkActionsBar';
 import { CommandPalette } from './components/CommandPalette/CommandPalette';
@@ -18,8 +21,9 @@ import { ListView } from './components/List/ListView';
 import { ShortcutsHelp } from './components/Shortcuts/ShortcutsHelp';
 import { TaskGraphView } from './components/TaskGraph/TaskGraphView';
 import { TaskDetailPanel } from './components/TaskDetail/TaskDetailPanel';
-import { useCreateTask } from './hooks/useTasks';
+import { useCreateTask, workspaceKeys } from './hooks/useTasks';
 import { useTaskEventsStream } from './hooks/useSSE';
+import { useAuthStore } from './store/authStore';
 import { useUiStore, type ThemeMode } from './store/uiStore';
 
 function useSyncThemeClass() {
@@ -128,12 +132,14 @@ const THEME_ICON: Record<ThemeMode, typeof Sun> = {
   system: Monitor,
 };
 
-export default function App() {
+function MainApp() {
   const { t, i18n } = useTranslation();
+  const user = useAuthStore((s) => s.user);
+  const clearSession = useAuthStore((s) => s.clearSession);
+  const qc = useQueryClient();
+  const [agentKeyModal, setAgentKeyModal] = useState<string | null>(null);
 
   useTaskEventsStream(true);
-  useSyncThemeClass();
-  useGlobalShortcuts();
 
   const viewMode = useUiStore((s) => s.viewMode);
   const setViewMode = useUiStore((s) => s.setViewMode);
@@ -204,6 +210,49 @@ export default function App() {
             {t('nav.graph')}
           </button>
         </nav>
+
+        {user && (
+          <div className="border-t border-edge-subtle px-2 py-3">
+            <p className="truncate text-sm font-medium text-fg">
+              {user.typ === 'member' ? user.displayName : user.name}
+            </p>
+            {user.typ === 'member' && (
+              <p className="truncate text-xs text-fg-subtle">{user.email}</p>
+            )}
+            <div className="mt-2 flex flex-col gap-1">
+              {user.typ === 'member' && (
+                <button
+                  type="button"
+                  className="rounded-lg px-2 py-1.5 text-left text-xs font-medium text-fg-secondary hover:bg-surface-hover"
+                  onClick={() => {
+                    const name = window.prompt(t('auth.agentNamePlaceholder'));
+                    if (!name?.trim()) return;
+                    void (async () => {
+                      try {
+                        const out = await api.createAgent({ name: name.trim() });
+                        setAgentKeyModal(out.apiKey);
+                        void qc.invalidateQueries({ queryKey: workspaceKeys.actors });
+                      } catch (e) {
+                        window.alert(
+                          e instanceof Error ? e.message : t('auth.error'),
+                        );
+                      }
+                    })();
+                  }}
+                >
+                  {t('auth.newAgent')}
+                </button>
+              )}
+              <button
+                type="button"
+                className="rounded-lg px-2 py-1.5 text-left text-xs font-medium text-fg-secondary hover:bg-surface-hover"
+                onClick={() => clearSession()}
+              >
+                {t('auth.logout')}
+              </button>
+            </div>
+          </div>
+        )}
 
         <div className="mt-auto flex flex-col gap-1.5 border-t border-edge-subtle pt-3">
           <label className="flex flex-col gap-1 px-1">
@@ -355,6 +404,89 @@ export default function App() {
           onClose={() => selectTask(null)}
         />
       )}
+
+      {agentKeyModal && (
+        <>
+          <button
+            type="button"
+            aria-label={t('auth.close')}
+            className="fixed inset-0 z-[72] bg-[var(--overlay-scrim)]"
+            onClick={() => setAgentKeyModal(null)}
+          />
+          <div className="fixed left-1/2 top-24 z-[73] w-full max-w-lg -translate-x-1/2 rounded-xl border border-edge bg-surface-panel p-4 shadow-elevated">
+            <p className="text-sm text-fg-secondary">{t('auth.agentCreated')}</p>
+            <pre className="mt-2 overflow-x-auto rounded-lg bg-surface-base p-3 text-xs text-fg">
+              {agentKeyModal}
+            </pre>
+            <button
+              type="button"
+              className="mt-3 rounded-xl bg-accent px-4 py-2 text-sm font-medium text-white hover:bg-accent-hover"
+              onClick={() => setAgentKeyModal(null)}
+            >
+              {t('auth.close')}
+            </button>
+          </div>
+        </>
+      )}
     </div>
   );
+}
+
+export default function App() {
+  const { t } = useTranslation();
+  const hydrated = useAuthStore((s) => s.hydrated);
+  const token = useAuthStore((s) => s.token);
+  const user = useAuthStore((s) => s.user);
+  const setUser = useAuthStore((s) => s.setUser);
+  const clearSession = useAuthStore((s) => s.clearSession);
+
+  useEffect(() => {
+    useAuthStore.getState().hydrate();
+  }, []);
+
+  const meQuery = useQuery({
+    queryKey: ['auth', 'me', token],
+    queryFn: () => api.me(),
+    enabled: hydrated && Boolean(token),
+    retry: false,
+  });
+
+  useEffect(() => {
+    if (meQuery.data) setUser(meQuery.data);
+  }, [meQuery.data, setUser]);
+
+  useEffect(() => {
+    if (hydrated && token && !meQuery.isFetching && meQuery.isError) {
+      clearSession();
+    }
+  }, [hydrated, token, meQuery.isFetching, meQuery.isError, clearSession]);
+
+  useSyncThemeClass();
+  useGlobalShortcuts();
+
+  if (!hydrated) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-surface-base text-fg-secondary">
+        {t('auth.loading')}
+      </div>
+    );
+  }
+
+  if (!token) {
+    return <LoginScreen />;
+  }
+
+  if (!user && meQuery.isFetching) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-surface-base text-fg-secondary">
+        {t('auth.loading')}
+      </div>
+    );
+  }
+
+  if (!user) {
+    return <LoginScreen />;
+  }
+
+  return <MainApp />;
 }

@@ -13,14 +13,10 @@ import type {
   TaskPriority,
   TaskStatus,
 } from '../types/index.js';
+import type { Actor } from '../types/actor.js';
 import { eventBus } from './EventBus.js';
 
 const IDENT_PREFIX = process.env.TASK_IDENTIFIER_PREFIX ?? 'XOPC';
-
-const DEFAULT_CREATOR = {
-  type: 'member' as const,
-  id: 'local-user',
-};
 
 const ALLOWED_TRANSITIONS: Record<TaskStatus, TaskStatus[]> = {
   backlog: ['todo', 'in_progress', 'cancelled'],
@@ -213,18 +209,21 @@ export class TaskService {
     };
   }
 
-  async create(input: {
-    title: string;
-    description?: string | null;
-    status?: TaskStatus;
-    priority?: TaskPriority;
-    projectId?: string | null;
-    parentId?: string | null;
-    intent?: string;
-    dueDate?: string | null;
-    position?: number;
-    labelIds?: string[];
-  }): Promise<Task> {
+  async create(
+    input: {
+      title: string;
+      description?: string | null;
+      status?: TaskStatus;
+      priority?: TaskPriority;
+      projectId?: string | null;
+      parentId?: string | null;
+      intent?: string;
+      dueDate?: string | null;
+      position?: number;
+      labelIds?: string[];
+    },
+    creator: Actor,
+  ): Promise<Task> {
     const id = nanoid();
     const ts = nowIso();
 
@@ -264,8 +263,8 @@ export class TaskService {
       status: input.status ?? 'backlog',
       priority: input.priority ?? 'none',
       position,
-      creatorType: DEFAULT_CREATOR.type,
-      creatorId: DEFAULT_CREATOR.id,
+      creatorType: creator.type,
+      creatorId: creator.id,
       assigneeType: null,
       assigneeId: null,
       parentId: input.parentId ?? null,
@@ -363,6 +362,7 @@ export class TaskService {
   async setStatus(
     id: string,
     nextStatus: TaskStatus,
+    author: Actor,
     note?: string,
   ): Promise<Task | null> {
     const existing = await db.select().from(t.task).where(eq(t.task.id, id)).get();
@@ -379,8 +379,8 @@ export class TaskService {
     await db.insert(t.taskComment).values({
       id: nanoid(),
       taskId: id,
-      authorType: 'member',
-      authorId: DEFAULT_CREATOR.id,
+      authorType: author.type,
+      authorId: author.id,
       content: note ?? `Status → ${nextStatus}`,
       type: 'status_change',
       parentId: null,
@@ -569,16 +569,20 @@ export class TaskService {
   async createSubtask(
     parentId: string,
     input: { title: string; description?: string | null },
+    creator: Actor,
   ): Promise<Task | null> {
     const parent = await db.select().from(t.task).where(eq(t.task.id, parentId)).get();
     if (!parent) return null;
-    return this.create({
-      title: input.title,
-      description: input.description,
-      parentId,
-      status: 'backlog',
-      projectId: parent.projectId,
-    });
+    return this.create(
+      {
+        title: input.title,
+        description: input.description,
+        parentId,
+        status: 'backlog',
+        projectId: parent.projectId,
+      },
+      creator,
+    );
   }
 
   async getGraph(taskId: string): Promise<TaskGraphResponse | null> {
