@@ -13,7 +13,14 @@ const priorities: TaskPriority[] = [
   'none',
 ];
 
-export function TaskFilterBar({ className }: { className?: string }) {
+export function TaskFilterBar({
+  className,
+  embedded,
+}: {
+  className?: string;
+  /** When true, omit the standalone panel chrome (for toolbar / header rows). */
+  embedded?: boolean;
+}) {
   const { t } = useTranslation();
   const filters = useUiStore((s) => s.taskFilters);
   const setTaskFilters = useUiStore((s) => s.setTaskFilters);
@@ -29,12 +36,13 @@ export function TaskFilterBar({ className }: { className?: string }) {
   return (
     <div
       className={clsx(
-        'flex flex-wrap items-end gap-3 rounded-xl border border-edge-subtle bg-surface-base/60 px-3 py-2',
+        'flex flex-wrap items-center gap-2 sm:gap-3',
+        embedded ? 'min-w-0' : 'rounded-xl border border-edge-subtle bg-surface-base/60 px-3 py-2',
         className,
       )}
     >
-      <label className="flex flex-col gap-0.5">
-        <span className="text-xs font-medium text-fg-subtle">
+      <label className="flex min-w-0 flex-row items-center gap-2">
+        <span className="shrink-0 whitespace-nowrap text-xs font-medium text-fg-subtle">
           {t('filters.priority')}
         </span>
         <select
@@ -54,8 +62,8 @@ export function TaskFilterBar({ className }: { className?: string }) {
           ))}
         </select>
       </label>
-      <label className="flex flex-col gap-0.5">
-        <span className="text-xs font-medium text-fg-subtle">
+      <label className="flex min-w-0 flex-row items-center gap-2">
+        <span className="shrink-0 whitespace-nowrap text-xs font-medium text-fg-subtle">
           {t('filters.assignee')}
         </span>
         <select
@@ -76,8 +84,8 @@ export function TaskFilterBar({ className }: { className?: string }) {
           ))}
         </select>
       </label>
-      <label className="flex flex-col gap-0.5">
-        <span className="text-xs font-medium text-fg-subtle">
+      <label className="flex min-w-0 flex-row items-center gap-2">
+        <span className="shrink-0 whitespace-nowrap text-xs font-medium text-fg-subtle">
           {t('filters.label')}
         </span>
         <select

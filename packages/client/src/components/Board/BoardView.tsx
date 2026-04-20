@@ -1,7 +1,9 @@
 import {
   DndContext,
+  DragOverlay,
   PointerSensor,
   type DragEndEvent,
+  type DragStartEvent,
   useSensor,
   useSensors,
 } from '@dnd-kit/core';
@@ -10,7 +12,6 @@ import { useTranslation } from 'react-i18next';
 import type { ListTasksParams } from '../../api/client';
 import type { Task, TaskStatus } from '../../types';
 import { STATUS_ORDER } from '../../lib/taskOrdering';
-import { TaskFilterBar } from '../Filters/TaskFilterBar';
 import {
   useDeleteTask,
   useQuickPatchTask,
@@ -23,6 +24,7 @@ import { useDialogStore } from '../../store/dialogStore';
 import { useUiStore } from '../../store/uiStore';
 import { BoardColumn } from './BoardColumn';
 import { TaskContextMenu } from './TaskContextMenu';
+import { TaskCardDragOverlay } from './TaskCard';
 
 const COLUMN_ORDER = STATUS_ORDER.filter((s) => s !== 'cancelled');
 
@@ -57,6 +59,7 @@ export function BoardView({ onOpenTask }: { onOpenTask: (id: string) => void }) 
     x: number;
     y: number;
   } | null>(null);
+  const [activeDragTask, setActiveDragTask] = useState<Task | null>(null);
 
   const grouped = useMemo(() => {
     const map = new Map<TaskStatus, Task[]>();
@@ -76,7 +79,13 @@ export function BoardView({ onOpenTask }: { onOpenTask: (id: string) => void }) 
     useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
   );
 
+  const onDragStart = (e: DragStartEvent) => {
+    const task = e.active.data.current?.task as Task | undefined;
+    setActiveDragTask(task ?? null);
+  };
+
   const onDragEnd = (e: DragEndEvent) => {
+    setActiveDragTask(null);
     const taskId = e.active.id as string;
     const overId = e.over?.id as TaskStatus | undefined;
     if (!overId || !(COLUMN_ORDER as readonly TaskStatus[]).includes(overId)) {
@@ -85,6 +94,10 @@ export function BoardView({ onOpenTask }: { onOpenTask: (id: string) => void }) 
     const task = tasks.find((t) => t.id === taskId);
     if (!task || task.status === overId) return;
     setStatus.mutate({ id: taskId, status: overId });
+  };
+
+  const onDragCancel = () => {
+    setActiveDragTask(null);
   };
 
   if (isLoading) {
@@ -104,9 +117,13 @@ export function BoardView({ onOpenTask }: { onOpenTask: (id: string) => void }) 
   }
 
   return (
-    <div className="flex flex-col gap-3">
-      <TaskFilterBar />
-      <DndContext sensors={sensors} onDragEnd={onDragEnd}>
+    <>
+      <DndContext
+        sensors={sensors}
+        onDragStart={onDragStart}
+        onDragEnd={onDragEnd}
+        onDragCancel={onDragCancel}
+      >
         <div className="flex gap-4 overflow-x-auto px-2 pb-4 sm:px-3">
           {COLUMN_ORDER.map((status) => (
             <BoardColumn
@@ -124,6 +141,15 @@ export function BoardView({ onOpenTask }: { onOpenTask: (id: string) => void }) 
             />
           ))}
         </div>
+        <DragOverlay dropAnimation={null}>
+          {activeDragTask ? (
+            <TaskCardDragOverlay
+              task={activeDragTask}
+              selectionMode={selectionMode}
+              selected={selectedTaskIds.includes(activeDragTask.id)}
+            />
+          ) : null}
+        </DragOverlay>
       </DndContext>
       {menu && (
         <TaskContextMenu
@@ -168,6 +194,6 @@ export function BoardView({ onOpenTask }: { onOpenTask: (id: string) => void }) 
           }}
         />
       )}
-    </div>
+    </>
   );
 }

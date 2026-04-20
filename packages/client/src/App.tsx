@@ -22,6 +22,7 @@ import {
 import { api } from './api/client';
 import { LoginScreen } from './components/Auth/LoginScreen';
 import { BoardView } from './components/Board/BoardView';
+import { TaskFilterBar } from './components/Filters/TaskFilterBar';
 import { BulkActionsBar } from './components/Board/BulkActionsBar';
 import { DialogHost } from './components/Dialog/DialogHost';
 import { CommandPalette } from './components/CommandPalette/CommandPalette';
@@ -281,7 +282,7 @@ function ProjectWorkspacePage() {
             onOpenShortcuts={() => setShortcutsOpen(true)}
           />
         </div>
-        <div className="flex flex-wrap items-center justify-between gap-3 border-t border-edge-subtle px-4 py-2 sm:px-6">
+        <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 border-t border-edge-subtle px-4 py-2 sm:px-6">
           <div className="flex flex-wrap items-center gap-2">
             <span className="text-xs font-medium uppercase tracking-wide text-fg-subtle">
               {t('projectWorkspace.viewLabel')}
@@ -310,7 +311,8 @@ function ProjectWorkspacePage() {
               ))}
             </div>
           </div>
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="flex min-w-0 flex-wrap items-center justify-end gap-x-3 gap-y-2">
+            {(vm === 'board' || vm === 'list') && <TaskFilterBar embedded />}
             {(vm === 'board' || vm === 'list') && (
               <button
                 type="button"

@@ -3,7 +3,6 @@ import type { TFunction } from 'i18next';
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { ListTasksParams } from '../../api/client';
-import { TaskFilterBar } from '../Filters/TaskFilterBar';
 import { useProjectWorkspaceMembers, useTaskList } from '../../hooks/useTasks';
 import {
   comparePriority,
@@ -196,7 +195,6 @@ export function ListView({ onOpenTask }: { onOpenTask: (id: string) => void }) {
 
   return (
     <div className="flex flex-col gap-3">
-      <TaskFilterBar />
       <div className="flex flex-wrap items-center gap-3">
         <label className="flex items-center gap-2 text-sm font-medium leading-6 text-fg">
           <span className="text-fg-secondary">{t('list.group')}</span>
