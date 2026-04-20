@@ -2,8 +2,16 @@ import { create } from 'zustand';
 
 const TOKEN_KEY = 'xopc-token';
 
+export type AccountRole = 'admin' | 'member' | 'guest';
+
 export type AuthUser =
-  | { typ: 'member'; id: string; email: string; displayName: string }
+  | {
+      typ: 'member';
+      id: string;
+      email: string;
+      displayName: string;
+      accountRole: AccountRole;
+    }
   | { typ: 'agent'; id: string; name: string; description: string | null };
 
 interface AuthState {

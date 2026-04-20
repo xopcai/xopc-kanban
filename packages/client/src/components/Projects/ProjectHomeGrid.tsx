@@ -2,6 +2,7 @@ import { MoreHorizontal, Plus } from 'lucide-react';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
+import { isWritableAuthUser } from '../../lib/authPermissions';
 import { projectWorkspacePath } from '../../lib/workspaceRoutes';
 import type { Project } from '../../types';
 import {
@@ -40,7 +41,8 @@ export function ProjectHomeGrid() {
   const archive = useArchiveProject();
   const [menuId, setMenuId] = useState<string | null>(null);
 
-  const canManage = user?.typ === 'member';
+  const canManage =
+    user?.typ === 'member' && isWritableAuthUser(user);
   const active = projects.filter((p) => p.status !== 'cancelled');
 
   const renameProject = async (p: Project) => {

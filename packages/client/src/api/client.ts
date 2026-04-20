@@ -1,5 +1,5 @@
 import { useAuthStore } from '../store/authStore';
-import type { AuthUser } from '../store/authStore';
+import type { AccountRole, AuthUser } from '../store/authStore';
 import type {
   DependencyType,
   Label,
@@ -131,6 +131,14 @@ function buildTaskQuery(params: ListTasksParams): string {
   return `?${q.toString()}`;
 }
 
+export type AdminMemberRow = {
+  id: string;
+  email: string;
+  displayName: string;
+  accountRole: AccountRole;
+  createdAt: string;
+};
+
 export type WorkspaceActorsResponse = {
   members: {
     type: 'member';
@@ -147,9 +155,15 @@ export const api = {
       method: 'POST',
       body: JSON.stringify(body),
     }).then((r) =>
-      parseJson<{ token: string; user: { id: string; email: string; displayName: string } }>(
-        r,
-      ),
+      parseJson<{
+        token: string;
+        user: {
+          id: string;
+          email: string;
+          displayName: string;
+          accountRole: AccountRole;
+        };
+      }>(r),
     );
   },
 
@@ -158,14 +172,49 @@ export const api = {
       method: 'POST',
       body: JSON.stringify(body),
     }).then((r) =>
-      parseJson<{ token: string; user: { id: string; email: string; displayName: string } }>(
-        r,
-      ),
+      parseJson<{
+        token: string;
+        user: {
+          id: string;
+          email: string;
+          displayName: string;
+          accountRole: AccountRole;
+        };
+      }>(r),
     );
   },
 
   me() {
     return apiFetch('/api/auth/me').then((r) => parseJson<AuthUser>(r));
+  },
+
+  listAdminMembers() {
+    return apiFetch('/api/admin/members').then((r) =>
+      parseJson<{ members: AdminMemberRow[] }>(r),
+    );
+  },
+
+  createAdminMember(body: {
+    email: string;
+    displayName: string;
+    password?: string;
+    accountRole?: 'member' | 'guest';
+  }) {
+    return apiFetch('/api/admin/members', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }).then(
+      (r) =>
+        parseJson<{
+          user: {
+            id: string;
+            email: string;
+            displayName: string;
+            accountRole: AccountRole;
+          };
+          initialPassword?: string;
+        }>(r),
+    );
   },
 
   listWorkspaceActors() {

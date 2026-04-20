@@ -13,6 +13,7 @@ import type {
   TaskPriority,
   TaskStatus,
 } from '../types/index.js';
+import { assertAccountCanWrite } from '../lib/accountAcl.js';
 import type { Actor } from '../types/actor.js';
 import { eventBus } from './EventBus.js';
 import { HttpError, projectService } from './ProjectService.js';
@@ -234,6 +235,7 @@ export class TaskService {
     },
     creator: Actor,
   ): Promise<Task> {
+    assertAccountCanWrite(creator);
     let projectId: string | null = input.projectId ?? null;
     if (input.parentId) {
       const parent = await db
@@ -343,9 +345,45 @@ export class TaskService {
     if (!existing) return null;
 
     await this.ensureProjectAccess(actor, existing.projectId);
+    assertAccountCanWrite(actor);
     if (patch.projectId !== undefined && patch.projectId !== existing.projectId) {
       if (!patch.projectId) throw new HttpError('Cannot remove project from task', 400);
       await projectService.assertMember(actor, patch.projectId);
+    }
+
+    const nextAssigneeType =
+      patch.assigneeType !== undefined ? patch.assigneeType : existing.assigneeType;
+    const nextAssigneeId =
+      patch.assigneeId !== undefined ? patch.assigneeId : existing.assigneeId;
+    const assigneeTouched =
+      patch.assigneeType !== undefined || patch.assigneeId !== undefined;
+    if (
+      assigneeTouched &&
+      nextAssigneeType &&
+      nextAssigneeId &&
+      (nextAssigneeType === 'member' || nextAssigneeType === 'agent')
+    ) {
+      const pid = existing.projectId;
+      if (!pid) throw new HttpError('Task has no project', 400);
+      const onProject = await projectService.isActorOnProject(
+        pid,
+        nextAssigneeType,
+        nextAssigneeId,
+      );
+      if (!onProject) {
+        const role = await projectService.getRole(pid, actor);
+        if (role !== 'owner' && role !== 'admin') {
+          throw new HttpError(
+            'Only project owners or admins can assign tasks to someone who is not on the project yet.',
+            400,
+          );
+        }
+        await projectService.addMember(pid, actor, {
+          actorType: nextAssigneeType,
+          actorId: nextAssigneeId,
+          role: 'member',
+        });
+      }
     }
 
     const ts = nowIso();
@@ -401,6 +439,7 @@ export class TaskService {
     if (!existing) return null;
 
     await this.ensureProjectAccess(author, existing.projectId);
+    assertAccountCanWrite(author);
 
     this.assertTransition(existing.status, nextStatus);
     const ts = nowIso();
@@ -437,6 +476,7 @@ export class TaskService {
     if (!existing) return false;
 
     await this.ensureProjectAccess(actor, existing.projectId);
+    assertAccountCanWrite(actor);
 
     await db.delete(t.task).where(eq(t.task.id, id));
     const ts = nowIso();
@@ -534,6 +574,7 @@ export class TaskService {
     actor: Actor,
     depType: DependencyType = 'blocks',
   ): Promise<TaskDependencyEdge> {
+    assertAccountCanWrite(actor);
     if (taskId === dependsOnId) {
       throw new Error('Task cannot depend on itself');
     }
@@ -607,6 +648,7 @@ export class TaskService {
     const task = await db.select().from(t.task).where(eq(t.task.id, scopeTaskId)).get();
     if (!task) return false;
     await this.ensureProjectAccess(actor, task.projectId);
+    assertAccountCanWrite(actor);
 
     await db.delete(t.taskDependency).where(eq(t.taskDependency.id, edgeId));
     const ts = nowIso();
@@ -683,6 +725,7 @@ export class TaskService {
   }
 
   async bulkDelete(ids: string[], actor: Actor): Promise<void> {
+    assertAccountCanWrite(actor);
     const unique = [...new Set(ids)];
     for (const id of unique) {
       const row = await db.select().from(t.task).where(eq(t.task.id, id)).get();
@@ -709,6 +752,7 @@ export class TaskService {
     nextStatus: TaskStatus,
     actor: Actor,
   ): Promise<void> {
+    assertAccountCanWrite(actor);
     const unique = [...new Set(ids)];
     const ts = nowIso();
     for (const id of unique) {

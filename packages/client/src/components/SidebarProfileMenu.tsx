@@ -7,6 +7,7 @@ import {
   Palette,
   Plus,
   Settings,
+  Shield,
   Type,
 } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
@@ -29,6 +30,7 @@ interface SidebarProfileMenuProps {
   onLogout: () => void;
   onNewAgent: () => void;
   onOpenAllSettings: () => void;
+  onOpenAdminAccounts?: () => void;
 }
 
 export function SidebarProfileMenu({
@@ -36,6 +38,7 @@ export function SidebarProfileMenu({
   onLogout,
   onNewAgent,
   onOpenAllSettings,
+  onOpenAdminAccounts,
 }: SidebarProfileMenuProps) {
   const { t, i18n } = useTranslation();
   const rootRef = useRef<HTMLDivElement>(null);
@@ -219,7 +222,7 @@ export function SidebarProfileMenu({
 
           <div className="my-1 border-t border-edge-subtle" />
 
-          {user.typ === 'member' && (
+          {user.typ === 'member' && user.accountRole !== 'guest' && (
             <button
               type="button"
               role="menuitem"
@@ -233,6 +236,23 @@ export function SidebarProfileMenu({
               <span className="min-w-0 flex-1">{t('auth.newAgent')}</span>
             </button>
           )}
+
+          {user.typ === 'member' &&
+            user.accountRole === 'admin' &&
+            onOpenAdminAccounts && (
+              <button
+                type="button"
+                role="menuitem"
+                className={rowClass(false)}
+                onClick={() => {
+                  onOpenAdminAccounts();
+                  setOpen(false);
+                }}
+              >
+                <Shield className="h-4 w-4 shrink-0 text-fg-secondary" />
+                <span className="min-w-0 flex-1">{t('admin.navLink')}</span>
+              </button>
+            )}
 
           <button
             type="button"

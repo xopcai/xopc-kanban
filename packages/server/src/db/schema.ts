@@ -61,6 +61,11 @@ export const member = sqliteTable(
     email: text('email').notNull().unique(),
     passwordHash: text('password_hash').notNull(),
     displayName: text('display_name').notNull(),
+    accountRole: text('account_role', {
+      enum: ['admin', 'member', 'guest'],
+    })
+      .notNull()
+      .default('member'),
     createdAt: text('created_at').notNull(),
     updatedAt: text('updated_at').notNull(),
   },

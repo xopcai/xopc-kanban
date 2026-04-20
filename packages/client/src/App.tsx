@@ -5,6 +5,7 @@ import {
   LayoutGrid,
   List,
   Plus,
+  Shield,
 } from 'lucide-react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useLayoutEffect, useState } from 'react';
@@ -20,6 +21,7 @@ import {
   useSearchParams,
 } from 'react-router-dom';
 import { api } from './api/client';
+import { AdminAccountsPage } from './components/Admin/AdminAccountsPage';
 import { LoginScreen } from './components/Auth/LoginScreen';
 import { BoardView } from './components/Board/BoardView';
 import { TaskFilterBar } from './components/Filters/TaskFilterBar';
@@ -38,6 +40,7 @@ import { ProjectHeaderRightRail } from './components/Projects/ProjectHeaderRight
 import { useSidebarResize } from './hooks/useSidebarResize';
 import { useCreateTask, useProjectsList, workspaceKeys } from './hooks/useTasks';
 import { useTaskEventsStream } from './hooks/useSSE';
+import { isWritableAuthUser } from './lib/authPermissions';
 import {
   PROJECTS_HOME_PATH,
   isWorkspaceView,
@@ -83,7 +86,7 @@ function useSyncThemeClass() {
   }, [themeMode]);
 }
 
-function useGlobalShortcuts(navigate: NavigateFunction) {
+function useGlobalShortcuts(navigate: NavigateFunction, canWrite: boolean) {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       const st = useUiStore.getState();
@@ -140,6 +143,7 @@ function useGlobalShortcuts(navigate: NavigateFunction) {
           !e.ctrlKey &&
           !e.altKey
         ) {
+          if (!canWrite) return;
           if (st.workspaceScreen !== 'tasks') {
             return;
           }
@@ -151,6 +155,7 @@ function useGlobalShortcuts(navigate: NavigateFunction) {
           return;
         }
         if ((e.key === 'c' || e.key === 'C') && !e.metaKey && !e.ctrlKey && !e.altKey) {
+          if (!canWrite) return;
           if (st.workspaceScreen !== 'tasks' || !st.currentProjectId) {
             return;
           }
@@ -182,7 +187,7 @@ function useGlobalShortcuts(navigate: NavigateFunction) {
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [navigate]);
+  }, [navigate, canWrite]);
 }
 
 function ProjectIndexRedirect() {
@@ -214,6 +219,8 @@ function ProjectWorkspacePage() {
   const navigate = useNavigate();
   const location = useLocation();
   const [searchParams, setSearchParams] = useSearchParams();
+  const user = useAuthStore((s) => s.user);
+  const canWrite = isWritableAuthUser(user);
   const selectTask = useUiStore((s) => s.selectTask);
   const setSelectionMode = useUiStore((s) => s.setSelectionMode);
   const selectionMode = useUiStore((s) => s.selectionMode);
@@ -313,7 +320,7 @@ function ProjectWorkspacePage() {
           </div>
           <div className="flex min-w-0 flex-wrap items-center justify-end gap-x-3 gap-y-2">
             {(vm === 'board' || vm === 'list') && <TaskFilterBar embedded />}
-            {(vm === 'board' || vm === 'list') && (
+            {(vm === 'board' || vm === 'list') && canWrite && (
               <button
                 type="button"
                 onClick={() => setSelectionMode(!selectionMode)}
@@ -327,14 +334,16 @@ function ProjectWorkspacePage() {
                 {selectionMode ? t('actions.selecting') : t('actions.select')}
               </button>
             )}
-            <button
-              type="button"
-              onClick={() => setCreateOpen(true)}
-              className="inline-flex items-center gap-2 rounded-xl bg-accent px-3 py-2 text-sm font-medium text-white transition-colors duration-150 hover:bg-accent-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-accent enabled:active:scale-95"
-            >
-              <Plus className="h-4 w-4" />
-              {t('actions.newTask')}
-            </button>
+            {canWrite && (
+              <button
+                type="button"
+                onClick={() => setCreateOpen(true)}
+                className="inline-flex items-center gap-2 rounded-xl bg-accent px-3 py-2 text-sm font-medium text-white transition-colors duration-150 hover:bg-accent-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-accent enabled:active:scale-95"
+              >
+                <Plus className="h-4 w-4" />
+                {t('actions.newTask')}
+              </button>
+            )}
           </div>
         </div>
       </header>
@@ -352,6 +361,7 @@ function MainApp() {
   const navigate = useNavigate();
   const location = useLocation();
   const [agentKeyModal, setAgentKeyModal] = useState<string | null>(null);
+  const canWrite = isWritableAuthUser(user);
 
   const viewMode = useUiStore((s) => s.viewMode);
   const selectedTaskId = useUiStore((s) => s.selectedTaskId);
@@ -366,7 +376,7 @@ function MainApp() {
 
   const projectsQuery = useProjectsList();
 
-  useGlobalShortcuts(navigate);
+  useGlobalShortcuts(navigate, canWrite);
 
   useEffect(() => {
     const m = /^\/projects\/([^/]+)\/(board|list|graph)$/.exec(
@@ -406,6 +416,11 @@ function MainApp() {
     user && (
       <SidebarProfileMenu
         user={user}
+        onOpenAdminAccounts={
+          user.typ === 'member' && user.accountRole === 'admin'
+            ? () => navigate('/admin/accounts')
+            : undefined
+        }
         onLogout={() => clearSession()}
         onNewAgent={() => {
           void (async () => {
@@ -458,6 +473,22 @@ function MainApp() {
           <FolderKanban className="h-5 w-5 text-fg-subtle" />
           {t('nav.projects')}
         </button>
+        {user &&
+          user.typ === 'member' &&
+          user.accountRole === 'admin' && (
+          <button
+            type="button"
+            onClick={() => navigate('/admin/accounts')}
+            className={`flex items-center gap-2 rounded-xl px-3 py-2 text-sm font-medium leading-6 transition-colors duration-150 ease-out focus:outline-none focus-visible:ring-2 focus-visible:ring-accent ${
+              location.pathname === '/admin/accounts'
+                ? 'bg-surface-active text-fg'
+                : 'text-fg-secondary hover:bg-surface-hover'
+            }`}
+          >
+            <Shield className="h-5 w-5 text-fg-subtle" />
+            {t('admin.navLink')}
+          </button>
+        )}
         <button
           type="button"
           onClick={() => {
@@ -528,7 +559,7 @@ function MainApp() {
       <DialogHost />
       <BulkActionsBar />
 
-      {createOpen && (
+      {createOpen && canWrite && (
         <>
           <button
             type="button"
@@ -638,6 +669,7 @@ function MainApp() {
               element={<Navigate to={PROJECTS_HOME_PATH} replace />}
             />
             <Route path="/projects" element={<ProjectsHomePage />} />
+            <Route path="/admin/accounts" element={<AdminAccountsPage />} />
             <Route path="/projects/:projectId" element={<ProjectIndexRedirect />} />
             <Route
               path="/projects/:projectId/:view"

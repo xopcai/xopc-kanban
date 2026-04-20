@@ -146,7 +146,27 @@
     "newAgent": "New agent",
     "agentNamePlaceholder": "Agent name",
     "agentCreated": "Agent created. Save this API key — it will not be shown again:",
-    "close": "Close"
+    "close": "Close",
+    "registrationDisabled": "Registration is disabled"
+  },
+  "admin": {
+    "navLink": "Accounts",
+    "accountsTitle": "Account management",
+    "accountsHint": "Create accounts by email. If you leave the password blank, a one-time initial password is generated and shown below.",
+    "backToProjects": "Back to projects",
+    "email": "Email",
+    "displayName": "Display name",
+    "optionalPassword": "Initial password (optional, min 8 characters)",
+    "accountRole": "Account role",
+    "roleMember": "Member",
+    "roleGuest": "Guest (read-only)",
+    "createUser": "Create user",
+    "membersList": "Workspace members",
+    "initialPasswordTitle": "Initial password",
+    "initialPasswordHint": "Share it with the user securely. It will not be shown again.",
+    "roleBadgeAdmin": "Admin",
+    "roleBadgeMember": "Member",
+    "roleBadgeGuest": "Guest"
   },
   "actions": {
     "select": "Select",

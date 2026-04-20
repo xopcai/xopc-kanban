@@ -2,6 +2,7 @@ import { asc, eq } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 import { db } from '../db/client.js';
 import * as t from '../db/schema.js';
+import { assertAccountCanWrite } from '../lib/accountAcl.js';
 import type { Actor } from '../types/actor.js';
 import type { CommentType, TaskComment } from '../types/index.js';
 import { eventBus } from './EventBus.js';
@@ -45,6 +46,7 @@ export class MemoryService {
     input: { content: string; type?: CommentType; parentId?: string | null },
     author: Actor,
   ): Promise<TaskComment> {
+    assertAccountCanWrite(author);
     const task = await db.select().from(t.task).where(eq(t.task.id, taskId)).get();
     if (!task) throw new HttpError('Task not found', 404);
     if (!task.projectId) throw new HttpError('Task has no project', 403);
@@ -94,6 +96,7 @@ export class MemoryService {
     const task = await db.select().from(t.task).where(eq(t.task.id, taskId)).get();
     if (!task || !task.projectId) return false;
     await projectService.assertMember(actor, task.projectId);
+    assertAccountCanWrite(actor);
 
     await db.delete(t.taskComment).where(eq(t.taskComment.id, memId));
     const ts = nowIso();

@@ -34,7 +34,14 @@ export function ProjectMembersPanel({
   const [addPick, setAddPick] = useState('');
   const [q, setQ] = useState('');
 
-  const canManage = user?.typ === 'member';
+  const canManageProject = useMemo(() => {
+    if (user?.typ !== 'member') return false;
+    if (user.accountRole === 'guest') return false;
+    const self = members.find(
+      (m) => m.actorType === 'member' && m.actorId === user.id,
+    );
+    return self?.role === 'owner' || self?.role === 'admin';
+  }, [members, user]);
 
   const memberIdSet = useMemo(() => {
     const s = new Set<string>();
@@ -114,7 +121,7 @@ export function ProjectMembersPanel({
         </div>
       </div>
 
-      {canManage && addOptions.length > 0 && (
+      {canManageProject && addOptions.length > 0 && (
         <div className="flex flex-col gap-2 border-b border-edge-subtle p-3">
           <label className="flex flex-col gap-1">
             <span className="text-xs font-medium text-fg-subtle">
@@ -203,7 +210,7 @@ export function ProjectMembersPanel({
                 <span className="text-[10px] font-medium uppercase tracking-wide text-fg-subtle">
                   {t(`projects.role.${m.role}`)}
                 </span>
-                {canManage && m.role !== 'owner' && (
+                {canManageProject && m.role !== 'owner' && (
                   <>
                     <select
                       className="max-w-[5.5rem] rounded border border-edge bg-surface-panel px-1 py-0.5 text-[10px] text-fg"

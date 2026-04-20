@@ -6,6 +6,7 @@ import { api } from '../../api/client';
 function localizeAuthErrorMessage(message: string, t: (k: string) => string): string {
   const known: Record<string, string> = {
     'Invalid email': 'auth.invalidEmail',
+    'Registration is disabled': 'auth.registrationDisabled',
   };
   const key = known[message.trim()];
   return key ? t(key) : message;
@@ -38,6 +39,7 @@ export function LoginScreen() {
           id: data.user.id,
           email: data.user.email,
           displayName: data.user.displayName,
+          accountRole: data.user.accountRole,
         });
       } else {
         const data = await api.login({ email, password });
@@ -46,6 +48,7 @@ export function LoginScreen() {
           id: data.user.id,
           email: data.user.email,
           displayName: data.user.displayName,
+          accountRole: data.user.accountRole,
         });
       }
     } catch (e) {

@@ -8,6 +8,7 @@
 
 - `sub`：主体 ID，即 `member.id` 或 `agent.id`
 - `typ`：`member` | `agent`
+- `acc`（可选）：人类账号全局角色 `admin` | `member` | `guest`，仅 `typ === 'member'` 时存在；旧令牌若无此字段，中间件会回查数据库
 - `exp` / `iat`：由 `hono/jwt` 签发（默认约 **7 天** 过期，见 `lib/token.ts`）
 
 签发入口：人类登录/注册、`POST /api/auth/agent/exchange`。
@@ -24,7 +25,7 @@
 `requireAuth`（`middleware/auth.ts`）：
 
 - 从 Header 或 `access_token` 解析原始字符串
-- 校验 JWT 后设置 Hono 变量：`actor: { type: 'member' | 'agent', id: string }`
+- 校验 JWT 后设置 Hono 变量：`actor` 为 `{ type: 'member' | 'agent', id: string, accountRole?: 'admin' | 'member' | 'guest' }`（`agent` 无 `accountRole`；`member` 总会带上解析后的账号角色）
 - 业务服务（如 `TaskService`、`MemoryService`）从路由传入的 `actor` 写入 `creator` / `assignee` / `author`，不再使用硬编码默认用户
 
 未携带或非法令牌返回 **401**。
@@ -34,6 +35,7 @@
 | 前缀 | 说明 |
 |------|------|
 | `/api/auth` | 注册、登录、当前用户、Agent API Key 换 JWT |
+| `/api/admin` | **仅 `accountRole === 'admin'`**：列出成员、`POST` 按邮箱创建账号（可选初始密码；未提供则响应中返回一次性随机密码） |
 | `/api/agents` | 已登录 **member** 创建/列出 Agent（创建时返回一次性 apiKey） |
 | `/api/workspace` | 工作区协作者（members + agents）等 |
 | `/api/projects` | 项目 CRUD（member 创建）、归档、`/members` 子资源（增删改角色） |
@@ -46,6 +48,9 @@
 
 ### 4.1 项目与任务 ACL
 
+- **账号角色 `guest`**：只读；创建/修改任务、项目、成员、标签、Agent、评论 memory 等写操作返回 **403**（`TaskService` / `ProjectService` / `MemoryService` 等与 `assertAccountCanWrite`）。
+- **`GET /api/workspace/actors`**：`guest` 仅能看到**与自己共项的人类成员**（及自己）+ 全部 Agent；`member`/`admin` 仍为全站成员列表。
+- **指派与入项**：`PATCH /api/tasks/:id` 若将任务指派给尚未在该项目 `project_member` 中的 `member`/`agent`，仅当操作者在项目上的角色为 **`owner` 或 `admin`** 时，服务器会先将其加入项目（角色 `member`）再更新指派；否则 **400**。
 - **`GET /api/tasks`**：查询参数 **`projectId` 必填**，且调用者须为该项目的 `project_member`，否则 **403**。
 - **创建任务**：请求体须包含 `projectId`，或提供 `parentId`（从父任务继承项目）；须为该项目成员。
 - **读改删任务及其子资源**（子任务、依赖、memory、状态等）：按任务所属 `project_id` 校验成员身份；非成员 **403**。
@@ -65,4 +70,10 @@
 
 ## 7. 密码与注册
 
-注册/登录请求体校验使用 Zod（如密码最小长度）；密码以 **bcrypt** 哈希存入 `member.password_hash`，接口响应永不返回密码或哈希。
+- 注册/登录请求体校验使用 Zod（如密码最小长度）；密码以 **bcrypt** 哈希存入 `member.password_hash`；常规接口响应不返回密码或哈希。
+- 自注册默认写入 `member.account_role = 'member'`。环境变量 **`ALLOW_PUBLIC_REGISTER=false`** 时 `POST /api/auth/register` 返回 **403**。
+- **`BOOTSTRAP_ADMIN_EMAILS`**：逗号分隔邮箱列表，服务启动时将对应用户的 `account_role` 设为 `admin`（用于首个管理员，无需改库脚本）。
+
+## 8. 管理员创建用户
+
+`POST /api/admin/members`（需管理员 JWT），请求体示例：`{ "email", "displayName", "password?"(≥8), "accountRole?": "member" | "guest" }`。未提供 `password` 时在 JSON 中返回 `initialPassword` 一次；禁止通过该接口创建 `admin`（仍用 bootstrap 或数据库运维升权）。

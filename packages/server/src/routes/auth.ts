@@ -1,6 +1,7 @@
 import { zValidator } from '@hono/zod-validator';
 import { Hono } from 'hono';
 import { z } from 'zod';
+import { isPublicRegisterAllowed } from '../db/bootstrap-admins.js';
 import { requireAuth } from '../middleware/auth.js';
 import {
   exchangeAgentApiKey,
@@ -28,6 +29,9 @@ const exchangeBody = z.object({
 
 export const authRouter = new Hono<{ Variables: { actor: Actor } }>()
   .post('/register', zValidator('json', registerBody), async (c) => {
+    if (!isPublicRegisterAllowed()) {
+      return c.json({ error: 'Registration is disabled' }, 403);
+    }
     const body = c.req.valid('json');
     try {
       const out = await registerMember(body);

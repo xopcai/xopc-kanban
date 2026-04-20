@@ -1,5 +1,6 @@
 import { createMiddleware } from 'hono/factory';
 import { verifyActorToken } from '../lib/token.js';
+import { getMemberAccountRole } from '../services/AuthService.js';
 import type { Actor } from '../types/actor.js';
 
 function bearerRaw(c: {
@@ -24,8 +25,16 @@ export const requireAuth = createMiddleware<{
     return c.json({ error: 'Unauthorized' }, 401);
   }
   try {
-    const { sub, typ } = await verifyActorToken(raw);
-    c.set('actor', { type: typ, id: sub });
+    const { sub, typ, accountRole: accFromJwt } = await verifyActorToken(raw);
+    let accountRole = accFromJwt;
+    if (typ === 'member' && !accountRole) {
+      accountRole = (await getMemberAccountRole(sub)) ?? 'member';
+    }
+    const actor: Actor =
+      typ === 'member'
+        ? { type: 'member', id: sub, accountRole: accountRole ?? 'member' }
+        : { type: 'agent', id: sub };
+    c.set('actor', actor);
     await next();
   } catch {
     return c.json({ error: 'Unauthorized' }, 401);

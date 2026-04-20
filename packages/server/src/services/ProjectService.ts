@@ -2,19 +2,13 @@ import { and, asc, eq, sql } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 import { db } from '../db/client.js';
 import * as sch from '../db/schema.js';
+import { assertAccountCanWrite } from '../lib/accountAcl.js';
+import { HttpError } from '../lib/httpError.js';
 import type { Actor } from '../types/actor.js';
 
 export type ProjectRole = 'owner' | 'admin' | 'member';
 
-export class HttpError extends Error {
-  constructor(
-    message: string,
-    public status: number,
-  ) {
-    super(message);
-    this.name = 'HttpError';
-  }
-}
+export { HttpError } from '../lib/httpError.js';
 
 function nowIso(): string {
   return new Date().toISOString();
@@ -78,6 +72,25 @@ export class ProjectService {
     return db.select().from(sch.project).where(eq(sch.project.id, projectId)).get();
   }
 
+  async isActorOnProject(
+    projectId: string,
+    actorType: 'member' | 'agent',
+    actorId: string,
+  ): Promise<boolean> {
+    const row = await db
+      .select()
+      .from(sch.projectMember)
+      .where(
+        and(
+          eq(sch.projectMember.projectId, projectId),
+          eq(sch.projectMember.actorType, actorType),
+          eq(sch.projectMember.actorId, actorId),
+        ),
+      )
+      .get();
+    return Boolean(row);
+  }
+
   async create(
     actor: Actor,
     input: {
@@ -90,6 +103,7 @@ export class ProjectService {
       leadId?: string | null;
     },
   ) {
+    assertAccountCanWrite(actor);
     if (actor.type !== 'member') {
       throw new HttpError('Only human members can create projects', 403);
     }
@@ -142,6 +156,7 @@ export class ProjectService {
       position: number;
     }>,
   ) {
+    assertAccountCanWrite(actor);
     await this.assertProjectAdmin(actor, projectId);
     const ts = nowIso();
     const updates: Partial<typeof sch.project.$inferInsert> = { updatedAt: ts };
@@ -160,6 +175,7 @@ export class ProjectService {
 
   /** Sets status to cancelled (soft delete). */
   async archive(projectId: string, actor: Actor) {
+    assertAccountCanWrite(actor);
     await this.assertOwner(actor, projectId);
     return this.update(projectId, actor, { status: 'cancelled' });
   }
@@ -192,6 +208,7 @@ export class ProjectService {
       role?: ProjectRole;
     },
   ) {
+    assertAccountCanWrite(actor);
     await this.assertProjectAdmin(actor, projectId);
     if (!(await this.actorExists(input.actorType, input.actorId))) {
       throw new HttpError('Actor not found', 400);
@@ -230,6 +247,7 @@ export class ProjectService {
     targetType: 'member' | 'agent',
     targetId: string,
   ) {
+    assertAccountCanWrite(actor);
     await this.assertProjectAdmin(actor, projectId);
     if (actor.type === targetType && actor.id === targetId) {
       throw new HttpError('Cannot remove yourself', 400);
@@ -280,6 +298,7 @@ export class ProjectService {
     targetId: string,
     role: ProjectRole,
   ) {
+    assertAccountCanWrite(actor);
     await this.assertProjectAdmin(actor, projectId);
     if (role === 'owner') {
       throw new HttpError('Use transfer ownership (not implemented); cannot set owner via patch', 400);
