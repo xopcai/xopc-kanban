@@ -1,4 +1,12 @@
-import type { Task, TaskComment, TaskPriority, TaskStatus } from '../types';
+import type {
+  DependencyType,
+  Task,
+  TaskComment,
+  TaskDependencyEdge,
+  TaskGraphResponse,
+  TaskPriority,
+  TaskStatus,
+} from '../types';
 
 const jsonHeaders = { 'Content-Type': 'application/json' };
 
@@ -13,9 +21,40 @@ async function parseJson<T>(res: Response): Promise<T> {
 export const api = {
   listTasks(params?: { rootOnly?: boolean }) {
     const q = new URLSearchParams();
-    if (params?.rootOnly) q.set('rootOnly', '1');
+    if (params?.rootOnly === true) q.set('rootOnly', '1');
     const suffix = q.toString() ? `?${q}` : '';
     return fetch(`/api/tasks${suffix}`).then((r) => parseJson<Task[]>(r));
+  },
+
+  getTaskGraph(taskId: string) {
+    return fetch(`/api/tasks/${taskId}/graph`).then((r) =>
+      parseJson<TaskGraphResponse>(r),
+    );
+  },
+
+  listDependencies(taskId: string) {
+    return fetch(`/api/tasks/${taskId}/dependencies`).then((r) =>
+      parseJson<TaskDependencyEdge[]>(r),
+    );
+  },
+
+  addDependency(
+    taskId: string,
+    body: { dependsOnId: string; type?: DependencyType },
+  ) {
+    return fetch(`/api/tasks/${taskId}/dependencies`, {
+      method: 'POST',
+      headers: jsonHeaders,
+      body: JSON.stringify(body),
+    }).then((r) => parseJson<TaskDependencyEdge>(r));
+  },
+
+  removeDependency(taskId: string, edgeId: string) {
+    return fetch(`/api/tasks/${taskId}/dependencies/${edgeId}`, {
+      method: 'DELETE',
+    }).then((r) => {
+      if (!r.ok) throw new Error(r.statusText);
+    });
   },
 
   getTask(id: string) {

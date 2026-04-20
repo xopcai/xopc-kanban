@@ -5,6 +5,11 @@ import { memoryService } from '../services/MemoryService.js';
 import { taskService } from '../services/TaskService.js';
 import type { TaskStatus } from '../types/index.js';
 
+const dependencyBody = z.object({
+  dependsOnId: z.string().min(1),
+  type: z.enum(['blocks', 'blocked_by', 'related']).optional(),
+});
+
 const taskStatusZ = z.enum([
   'backlog',
   'todo',
@@ -99,6 +104,36 @@ export const tasksRouter = new Hono()
     const graph = await taskService.getGraph(c.req.param('id'));
     if (!graph) return c.json({ error: 'Not found' }, 404);
     return c.json(graph);
+  })
+  .get('/:id/dependencies', async (c) => {
+    const task = await taskService.getById(c.req.param('id'));
+    if (!task) return c.json({ error: 'Not found' }, 404);
+    const edges = await taskService.listDependencies(c.req.param('id'));
+    return c.json(edges);
+  })
+  .post('/:id/dependencies', zValidator('json', dependencyBody), async (c) => {
+    const body = c.req.valid('json');
+    const task = await taskService.getById(c.req.param('id'));
+    if (!task) return c.json({ error: 'Not found' }, 404);
+    try {
+      const edge = await taskService.addDependency(
+        c.req.param('id'),
+        body.dependsOnId,
+        body.type ?? 'blocks',
+      );
+      return c.json(edge, 201);
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : 'Bad request';
+      return c.json({ error: msg }, 400);
+    }
+  })
+  .delete('/:id/dependencies/:edgeId', async (c) => {
+    const ok = await taskService.removeDependency(
+      c.req.param('edgeId'),
+      c.req.param('id'),
+    );
+    if (!ok) return c.json({ error: 'Not found' }, 404);
+    return c.body(null, 204);
   })
   .get('/:id/memory', async (c) => {
     const items = await memoryService.list(c.req.param('id'));

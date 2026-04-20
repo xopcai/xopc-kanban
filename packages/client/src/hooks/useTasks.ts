@@ -4,13 +4,15 @@ import {
   useQueryClient,
 } from '@tanstack/react-query';
 import { api } from '../api/client';
-import type { TaskStatus } from '../types';
+import type { DependencyType, TaskStatus } from '../types';
 
 export const taskKeys = {
   all: ['tasks'] as const,
   list: (rootOnly?: boolean) => [...taskKeys.all, 'list', rootOnly] as const,
   detail: (id: string) => [...taskKeys.all, 'detail', id] as const,
   memory: (id: string) => [...taskKeys.all, 'memory', id] as const,
+  graph: (id: string) => [...taskKeys.all, 'graph', id] as const,
+  deps: (id: string) => [...taskKeys.all, 'deps', id] as const,
 };
 
 export function useTaskList(rootOnly = true) {
@@ -32,6 +34,22 @@ export function useTaskMemory(taskId: string | null) {
   return useQuery({
     queryKey: taskKeys.memory(taskId ?? ''),
     queryFn: () => api.listMemory(taskId!),
+    enabled: Boolean(taskId),
+  });
+}
+
+export function useTaskGraph(anchorId: string | null) {
+  return useQuery({
+    queryKey: taskKeys.graph(anchorId ?? ''),
+    queryFn: () => api.getTaskGraph(anchorId!),
+    enabled: Boolean(anchorId),
+  });
+}
+
+export function useTaskDependencies(taskId: string | null) {
+  return useQuery({
+    queryKey: taskKeys.deps(taskId ?? ''),
+    queryFn: () => api.listDependencies(taskId!),
     enabled: Boolean(taskId),
   });
 }
@@ -102,6 +120,27 @@ export function useDeleteTask() {
   return useMutation({
     mutationFn: (id: string) => api.deleteTask(id),
     onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: taskKeys.all });
+    },
+  });
+}
+
+export function useAddDependency(taskId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (input: { dependsOnId: string; type?: DependencyType }) =>
+      api.addDependency(taskId, input),
+    onSettled: () => {
+      void qc.invalidateQueries({ queryKey: taskKeys.all });
+    },
+  });
+}
+
+export function useRemoveDependency(taskId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (edgeId: string) => api.removeDependency(taskId, edgeId),
+    onSettled: () => {
       void qc.invalidateQueries({ queryKey: taskKeys.all });
     },
   });

@@ -1,11 +1,15 @@
 import { X } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import {
+  useAddDependency,
   useAddMemory,
   useDeleteTask,
   usePatchTask,
+  useRemoveDependency,
   useSetTaskStatus,
+  useTaskDependencies,
   useTaskDetail,
+  useTaskList,
   useTaskMemory,
 } from '../../hooks/useTasks';
 import type { TaskStatus } from '../../types';
@@ -34,10 +38,18 @@ export function TaskDetailPanel({
   const setStatus = useSetTaskStatus();
   const addMem = useAddMemory(taskId);
   const delTask = useDeleteTask();
+  const { data: deps = [] } = useTaskDependencies(taskId);
+  const { data: allTasks = [] } = useTaskList(false);
+  const addDep = useAddDependency(taskId);
+  const removeDep = useRemoveDependency(taskId);
 
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [note, setNote] = useState('');
+  const [dependsOnPick, setDependsOnPick] = useState('');
+
+  const taskLabel = (id: string) =>
+    allTasks.find((x) => x.id === id)?.identifier ?? id.slice(0, 8);
 
   useEffect(() => {
     if (task) {
@@ -169,6 +181,102 @@ export function TaskDetailPanel({
                   </ul>
                 </div>
               )}
+
+              <div>
+                <h3 className="text-sm font-semibold leading-6 text-fg">
+                  Dependencies
+                </h3>
+                <p className="mt-1 text-xs leading-5 text-fg-subtle">
+                  This task depends on prerequisites. Removing an edge updates the graph for everyone.
+                </p>
+                <ul className="mt-2 space-y-2">
+                  {deps.length === 0 && (
+                    <li className="text-sm text-fg-secondary">No linked edges.</li>
+                  )}
+                  {deps.map((e) => {
+                    if (e.taskId === task.id) {
+                      return (
+                        <li
+                          key={e.id}
+                          className="flex items-center justify-between gap-2 rounded-lg border border-edge-subtle px-2 py-1.5 text-sm text-fg-secondary"
+                        >
+                          <span>
+                            Depends on{' '}
+                            <span className="font-medium text-fg">
+                              {taskLabel(e.dependsOnId)}
+                            </span>{' '}
+                            <span className="text-fg-subtle">({e.type})</span>
+                          </span>
+                          <button
+                            type="button"
+                            className="shrink-0 rounded-lg px-2 py-1 text-xs font-medium text-fg-subtle transition-colors hover:bg-surface-hover hover:text-fg focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+                            onClick={() => removeDep.mutate(e.id)}
+                          >
+                            Remove
+                          </button>
+                        </li>
+                      );
+                    }
+                    return (
+                      <li
+                        key={e.id}
+                        className="flex items-center justify-between gap-2 rounded-lg border border-edge-subtle px-2 py-1.5 text-sm text-fg-secondary"
+                      >
+                        <span>
+                          Required by{' '}
+                          <span className="font-medium text-fg">
+                            {taskLabel(e.taskId)}
+                          </span>{' '}
+                          <span className="text-fg-subtle">({e.type})</span>
+                        </span>
+                        <button
+                          type="button"
+                          className="shrink-0 rounded-lg px-2 py-1 text-xs font-medium text-fg-subtle transition-colors hover:bg-surface-hover hover:text-fg focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+                          onClick={() => removeDep.mutate(e.id)}
+                        >
+                          Remove
+                        </button>
+                      </li>
+                    );
+                  })}
+                </ul>
+                <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-center">
+                  <select
+                    className="min-w-0 flex-1 rounded-xl border border-edge bg-surface-panel px-3 py-2 text-sm leading-6 text-fg focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+                    value={dependsOnPick}
+                    onChange={(e) => setDependsOnPick(e.target.value)}
+                  >
+                    <option value="">Select prerequisite…</option>
+                    {allTasks
+                      .filter((x) => x.id !== task.id)
+                      .map((x) => (
+                        <option key={x.id} value={x.id}>
+                          {x.identifier} — {x.title}
+                        </option>
+                      ))}
+                  </select>
+                  <button
+                    type="button"
+                    className="rounded-xl border border-edge bg-surface-panel px-4 py-2 text-sm font-medium text-fg transition-colors hover:bg-surface-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-accent active:scale-95"
+                    onClick={() => {
+                      if (!dependsOnPick) return;
+                      addDep.mutate(
+                        { dependsOnId: dependsOnPick },
+                        {
+                          onSuccess: () => setDependsOnPick(''),
+                          onError: (err) => {
+                            window.alert(
+                              err instanceof Error ? err.message : 'Failed to add',
+                            );
+                          },
+                        },
+                      );
+                    }}
+                  >
+                    Link prerequisite
+                  </button>
+                </div>
+              </div>
 
               <div>
                 <h3 className="text-sm font-semibold leading-6 text-fg">

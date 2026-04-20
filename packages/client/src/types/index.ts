@@ -41,6 +41,16 @@ export interface TaskComment {
   updatedAt: string;
 }
 
+export type DependencyType = 'blocks' | 'blocked_by' | 'related';
+
+export interface TaskDependencyEdge {
+  id: string;
+  taskId: string;
+  dependsOnId: string;
+  type: DependencyType;
+  createdAt: string;
+}
+
 export interface Task {
   id: string;
   projectId: string | null;
@@ -67,11 +77,18 @@ export interface Task {
   updatedAt: string;
 }
 
+export interface TaskGraphResponse {
+  root: Task;
+  nodes: Task[];
+  edges: TaskDependencyEdge[];
+}
+
 export type TaskEventType =
   | 'task.created'
   | 'task.updated'
   | 'task.deleted'
   | 'task.status_changed'
+  | 'task.dependency_changed'
   | 'memory.added';
 
 export interface TaskEvent {
@@ -81,4 +98,4 @@ export interface TaskEvent {
   timestamp: string;
 }
 
-export type ViewMode = 'board' | 'list';
+export type ViewMode = 'board' | 'list' | 'graph';

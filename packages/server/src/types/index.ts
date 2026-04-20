@@ -88,6 +88,7 @@ export type TaskEventType =
   | 'task.updated'
   | 'task.deleted'
   | 'task.status_changed'
+  | 'task.dependency_changed'
   | 'memory.added';
 
 export interface TaskEvent {

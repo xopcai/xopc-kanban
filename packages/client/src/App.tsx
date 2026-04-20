@@ -1,7 +1,8 @@
-import { LayoutGrid, List, Plus } from 'lucide-react';
+import { GitBranch, LayoutGrid, List, Plus } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { BoardView } from './components/Board/BoardView';
 import { ListView } from './components/List/ListView';
+import { TaskGraphView } from './components/TaskGraph/TaskGraphView';
 import { TaskDetailPanel } from './components/TaskDetail/TaskDetailPanel';
 import { useCreateTask } from './hooks/useTasks';
 import { useTaskEventsStream } from './hooks/useSSE';
@@ -64,6 +65,18 @@ export default function App() {
             <List className="h-5 w-5 text-fg-subtle" />
             List
           </button>
+          <button
+            type="button"
+            onClick={() => setViewMode('graph')}
+            className={`flex items-center gap-2 rounded-xl px-3 py-2 text-sm font-medium leading-6 transition-colors duration-150 ease-out focus:outline-none focus-visible:ring-2 focus-visible:ring-accent ${
+              viewMode === 'graph'
+                ? 'bg-surface-active text-fg'
+                : 'text-fg-secondary hover:bg-surface-hover'
+            }`}
+          >
+            <GitBranch className="h-5 w-5 text-fg-subtle" />
+            Graph
+          </button>
         </nav>
       </aside>
 
@@ -90,8 +103,10 @@ export default function App() {
         <div className="flex-1 overflow-auto px-6 py-4">
           {viewMode === 'board' ? (
             <BoardView onOpenTask={(id) => selectTask(id)} />
-          ) : (
+          ) : viewMode === 'list' ? (
             <ListView onOpenTask={(id) => selectTask(id)} />
+          ) : (
+            <TaskGraphView onOpenTask={(id) => selectTask(id)} />
           )}
         </div>
       </main>

@@ -4,6 +4,7 @@ import { db } from '../db/client.js';
 import * as t from '../db/schema.js';
 import type {
   ContextRef,
+  DependencyType,
   Label,
   Task,
   TaskComment,
@@ -391,6 +392,159 @@ export class TaskService {
     return true;
   }
 
+  private async expandConnectedTaskIds(seed: string): Promise<string[]> {
+    const ids = new Set<string>([seed]);
+    while (true) {
+      const list = [...ids];
+      const rows = await db
+        .select()
+        .from(t.taskDependency)
+        .where(
+          or(
+            inArray(t.taskDependency.taskId, list),
+            inArray(t.taskDependency.dependsOnId, list),
+          ),
+        );
+      const before = ids.size;
+      for (const r of rows) {
+        ids.add(r.taskId);
+        ids.add(r.dependsOnId);
+      }
+      if (ids.size === before) break;
+    }
+    return [...ids];
+  }
+
+  /** Row (v, d): v depends on d ⇒ edge d → v (d before v). Adding v depends on d₀ creates cycle iff d₀ is reachable from v. */
+  private async wouldCreateCycle(taskId: string, dependsOnId: string): Promise<boolean> {
+    const rows = await db.select().from(t.taskDependency);
+    const adj = new Map<string, string[]>();
+    for (const r of rows) {
+      const v = r.taskId;
+      const d = r.dependsOnId;
+      const list = adj.get(d) ?? [];
+      list.push(v);
+      adj.set(d, list);
+    }
+    const d0 = dependsOnId;
+    const v0 = taskId;
+    const next = adj.get(d0) ?? [];
+    next.push(v0);
+    adj.set(d0, next);
+
+    const stack = [taskId];
+    const seen = new Set<string>();
+    while (stack.length > 0) {
+      const x = stack.pop()!;
+      if (x === dependsOnId) return true;
+      if (seen.has(x)) continue;
+      seen.add(x);
+      for (const y of adj.get(x) ?? []) stack.push(y);
+    }
+    return false;
+  }
+
+  async listDependencies(taskId: string): Promise<TaskDependencyEdge[]> {
+    const rows = await db
+      .select()
+      .from(t.taskDependency)
+      .where(
+        or(
+          eq(t.taskDependency.taskId, taskId),
+          eq(t.taskDependency.dependsOnId, taskId),
+        ),
+      )
+      .orderBy(asc(t.taskDependency.createdAt));
+    return rows.map((e) => ({
+      id: e.id,
+      taskId: e.taskId,
+      dependsOnId: e.dependsOnId,
+      type: e.type,
+      createdAt: e.createdAt,
+    }));
+  }
+
+  async addDependency(
+    taskId: string,
+    dependsOnId: string,
+    depType: DependencyType = 'blocks',
+  ): Promise<TaskDependencyEdge> {
+    if (taskId === dependsOnId) {
+      throw new Error('Task cannot depend on itself');
+    }
+    const [a, b] = await Promise.all([
+      db.select().from(t.task).where(eq(t.task.id, taskId)).get(),
+      db.select().from(t.task).where(eq(t.task.id, dependsOnId)).get(),
+    ]);
+    if (!a || !b) throw new Error('Task not found');
+
+    const dup = await db
+      .select()
+      .from(t.taskDependency)
+      .where(
+        and(
+          eq(t.taskDependency.taskId, taskId),
+          eq(t.taskDependency.dependsOnId, dependsOnId),
+        ),
+      )
+      .get();
+    if (dup) throw new Error('Dependency already exists');
+
+    if (await this.wouldCreateCycle(taskId, dependsOnId)) {
+      throw new Error('Dependency would create a cycle');
+    }
+
+    const id = nanoid();
+    const ts = nowIso();
+    await db.insert(t.taskDependency).values({
+      id,
+      taskId,
+      dependsOnId,
+      type: depType,
+      createdAt: ts,
+    });
+
+    await eventBus.publish({
+      type: 'task.dependency_changed',
+      taskId,
+      payload: { action: 'add', edgeId: id, dependsOnId },
+      timestamp: ts,
+    });
+
+    return {
+      id,
+      taskId,
+      dependsOnId,
+      type: depType,
+      createdAt: ts,
+    };
+  }
+
+  async removeDependency(
+    edgeId: string,
+    scopeTaskId: string,
+  ): Promise<boolean> {
+    const row = await db
+      .select()
+      .from(t.taskDependency)
+      .where(eq(t.taskDependency.id, edgeId))
+      .get();
+    if (!row) return false;
+    if (row.taskId !== scopeTaskId && row.dependsOnId !== scopeTaskId) {
+      return false;
+    }
+
+    await db.delete(t.taskDependency).where(eq(t.taskDependency.id, edgeId));
+    const ts = nowIso();
+    await eventBus.publish({
+      type: 'task.dependency_changed',
+      taskId: scopeTaskId,
+      payload: { action: 'remove', edgeId },
+      timestamp: ts,
+    });
+    return true;
+  }
+
   async createSubtask(
     parentId: string,
     input: { title: string; description?: string | null },
@@ -410,10 +564,7 @@ export class TaskService {
     const root = await this.getById(taskId);
     if (!root) return null;
 
-    const collectIds = (task: Task): string[] => {
-      return [task.id, ...task.children.flatMap(collectIds)];
-    };
-    const ids = collectIds(root);
+    const ids = await this.expandConnectedTaskIds(taskId);
     if (ids.length === 0) {
       return { root, nodes: [root], edges: [] };
     }
@@ -422,7 +573,7 @@ export class TaskService {
       .select()
       .from(t.taskDependency)
       .where(
-        or(
+        and(
           inArray(t.taskDependency.taskId, ids),
           inArray(t.taskDependency.dependsOnId, ids),
         ),
