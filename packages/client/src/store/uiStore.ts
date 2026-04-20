@@ -9,9 +9,35 @@ export type TextSize = 'sm' | 'md' | 'lg';
 const THEME_KEY = 'xopc-theme';
 const TEXT_SIZE_KEY = 'xopc-text-size';
 const CURRENT_PROJECT_KEY = 'xopc-current-project';
-const WORKSPACE_SCREEN_KEY = 'xopc-workspace-screen';
+/** Last project opened in task workspace; kept when returning to /projects for sidebar shortcuts. */
+const LAST_WORKSPACE_PROJECT_KEY = 'xopc-last-workspace-project';
+const SIDEBAR_WIDTH_KEY = 'xopc-sidebar-width';
 /** @deprecated read for migration only */
 const LEGACY_CONV_TEXT_KEY = 'xopc-conv-text';
+
+export const SIDEBAR_WIDTH_MIN_PX = 200;
+export const SIDEBAR_WIDTH_MAX_PX = 480;
+export const SIDEBAR_WIDTH_DEFAULT_PX = 240;
+
+function clampSidebarWidthPx(w: number): number {
+  return Math.min(
+    SIDEBAR_WIDTH_MAX_PX,
+    Math.max(SIDEBAR_WIDTH_MIN_PX, Math.round(w)),
+  );
+}
+
+function readStoredSidebarWidthPx(): number {
+  try {
+    const v = localStorage.getItem(SIDEBAR_WIDTH_KEY);
+    if (v) {
+      const n = Number.parseInt(v, 10);
+      if (!Number.isNaN(n)) return clampSidebarWidthPx(n);
+    }
+  } catch {
+    /* ignore */
+  }
+  return SIDEBAR_WIDTH_DEFAULT_PX;
+}
 
 function readStoredTheme(): ThemeMode {
   try {
@@ -33,14 +59,14 @@ function readStoredCurrentProjectId(): string | null {
   return null;
 }
 
-function readStoredWorkspaceScreen(): WorkspaceScreen {
+function readStoredLastWorkspaceProjectId(): string | null {
   try {
-    const v = localStorage.getItem(WORKSPACE_SCREEN_KEY);
-    if (v === 'tasks' || v === 'projects') return v;
+    const v = localStorage.getItem(LAST_WORKSPACE_PROJECT_KEY);
+    if (v && v.length > 0) return v;
   } catch {
     /* ignore */
   }
-  return 'projects';
+  return null;
 }
 
 function readStoredTextSize(): TextSize {
@@ -80,6 +106,8 @@ interface UiState {
   shortcutsOpen: boolean;
   themeMode: ThemeMode;
   textSize: TextSize;
+  /** Left sidebar width (px); persisted for layout preference. */
+  sidebarWidthPx: number;
   taskFilters: TaskFiltersState;
   selectionMode: boolean;
   selectedTaskIds: string[];
@@ -92,23 +120,30 @@ interface UiState {
   setShortcutsOpen: (open: boolean) => void;
   setThemeMode: (mode: ThemeMode) => void;
   setTextSize: (size: TextSize) => void;
+  setSidebarWidthPx: (w: number) => void;
   setTaskFilters: (patch: Partial<TaskFiltersState>) => void;
   resetTaskFilters: () => void;
   setSelectionMode: (on: boolean) => void;
   toggleTaskSelected: (id: string) => void;
   clearSelection: () => void;
+  /** Remember last task workspace project (sidebar / shortcuts when not on a project route). */
+  rememberWorkspaceProject: (id: string) => void;
+  getLastWorkspaceProjectId: () => string | null;
+  clearLastWorkspaceProjectIfMatch: (id: string) => void;
 }
 
 export const useUiStore = create<UiState>((set, get) => ({
   selectedTaskId: null,
   currentProjectId: readStoredCurrentProjectId(),
-  workspaceScreen: readStoredWorkspaceScreen(),
+  /** Driven by the URL after hydration; initial value avoids a null flash before first route sync. */
+  workspaceScreen: 'projects' as WorkspaceScreen,
   viewMode: 'board',
   createOpen: false,
   commandOpen: false,
   shortcutsOpen: false,
   themeMode: readStoredTheme(),
   textSize: readStoredTextSize(),
+  sidebarWidthPx: readStoredSidebarWidthPx(),
   taskFilters: { ...defaultTaskFilters },
   selectionMode: false,
   selectedTaskIds: [],
@@ -122,14 +157,7 @@ export const useUiStore = create<UiState>((set, get) => ({
     }
     set({ currentProjectId: id });
   },
-  setWorkspaceScreen: (screen) => {
-    try {
-      localStorage.setItem(WORKSPACE_SCREEN_KEY, screen);
-    } catch {
-      /* ignore */
-    }
-    set({ workspaceScreen: screen });
-  },
+  setWorkspaceScreen: (screen) => set({ workspaceScreen: screen }),
   setViewMode: (mode) => set({ viewMode: mode }),
   setCreateOpen: (open) => set({ createOpen: open }),
   setCommandOpen: (open) => set({ commandOpen: open }),
@@ -151,6 +179,15 @@ export const useUiStore = create<UiState>((set, get) => ({
     }
     set({ textSize: size });
   },
+  setSidebarWidthPx: (w) => {
+    const cw = clampSidebarWidthPx(w);
+    try {
+      localStorage.setItem(SIDEBAR_WIDTH_KEY, String(cw));
+    } catch {
+      /* ignore */
+    }
+    set({ sidebarWidthPx: cw });
+  },
   setTaskFilters: (patch) =>
     set({ taskFilters: { ...get().taskFilters, ...patch } }),
   resetTaskFilters: () => set({ taskFilters: { ...defaultTaskFilters } }),
@@ -168,4 +205,20 @@ export const useUiStore = create<UiState>((set, get) => ({
       return { selectedTaskIds };
     }),
   clearSelection: () => set({ selectedTaskIds: [] }),
+  rememberWorkspaceProject: (id) => {
+    try {
+      localStorage.setItem(LAST_WORKSPACE_PROJECT_KEY, id);
+    } catch {
+      /* ignore */
+    }
+  },
+  getLastWorkspaceProjectId: () => readStoredLastWorkspaceProjectId(),
+  clearLastWorkspaceProjectIfMatch: (id) => {
+    try {
+      const cur = localStorage.getItem(LAST_WORKSPACE_PROJECT_KEY);
+      if (cur === id) localStorage.removeItem(LAST_WORKSPACE_PROJECT_KEY);
+    } catch {
+      /* ignore */
+    }
+  },
 }));

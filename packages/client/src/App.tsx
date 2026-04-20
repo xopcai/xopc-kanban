@@ -7,8 +7,18 @@ import {
   Plus,
 } from 'lucide-react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { useEffect, useState } from 'react';
+import { useEffect, useLayoutEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import type { NavigateFunction } from 'react-router-dom';
+import {
+  Navigate,
+  Route,
+  Routes,
+  useLocation,
+  useNavigate,
+  useParams,
+  useSearchParams,
+} from 'react-router-dom';
 import { api } from './api/client';
 import { LoginScreen } from './components/Auth/LoginScreen';
 import { BoardView } from './components/Board/BoardView';
@@ -24,13 +34,26 @@ import { TaskDetailPanel } from './components/TaskDetail/TaskDetailPanel';
 import { ProjectHomeGrid } from './components/Projects/ProjectHomeGrid';
 import { ProjectHeaderBar } from './components/Projects/ProjectHeaderBar';
 import { ProjectHeaderRightRail } from './components/Projects/ProjectHeaderRightRail';
+import { useSidebarResize } from './hooks/useSidebarResize';
 import { useCreateTask, useProjectsList, workspaceKeys } from './hooks/useTasks';
 import { useTaskEventsStream } from './hooks/useSSE';
+import {
+  PROJECTS_HOME_PATH,
+  isWorkspaceView,
+  projectWorkspacePath,
+} from './lib/workspaceRoutes';
 import { useAuthStore } from './store/authStore';
 import { useDialogStore } from './store/dialogStore';
 import { useUiStore } from './store/uiStore';
+import type { ViewMode } from './types';
 
-/** Maps UI text size to root `font-size` so Tailwind `rem` typography scales consistently. */
+/** Current route project, or last opened task workspace (e.g. user is on /projects). */
+function resolveProjectIdForTaskNav(): string | null {
+  const st = useUiStore.getState();
+  return st.currentProjectId ?? st.getLastWorkspaceProjectId();
+}
+
+/** Maps UI text size to root `font-size` so Tailwind `rem`-based UI scales together. */
 function useSyncTextSize() {
   const textSize = useUiStore((s) => s.textSize);
   useEffect(() => {
@@ -59,7 +82,7 @@ function useSyncThemeClass() {
   }, [themeMode]);
 }
 
-function useGlobalShortcuts() {
+function useGlobalShortcuts(navigate: NavigateFunction) {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       const st = useUiStore.getState();
@@ -134,31 +157,189 @@ function useGlobalShortcuts() {
           return;
         }
         if (e.key === '1') {
-          if (st.workspaceScreen !== 'tasks') {
-            return;
-          }
-          st.setViewMode('board');
+          const pid = resolveProjectIdForTaskNav();
+          if (!pid) return;
+          e.preventDefault();
+          navigate(projectWorkspacePath(pid, 'board'));
           return;
         }
         if (e.key === '2') {
-          if (st.workspaceScreen !== 'tasks') {
-            return;
-          }
-          st.setViewMode('list');
+          const pid = resolveProjectIdForTaskNav();
+          if (!pid) return;
+          e.preventDefault();
+          navigate(projectWorkspacePath(pid, 'list'));
           return;
         }
         if (e.key === '3') {
-          if (st.workspaceScreen !== 'tasks') {
-            return;
-          }
-          st.setViewMode('graph');
+          const pid = resolveProjectIdForTaskNav();
+          if (!pid) return;
+          e.preventDefault();
+          navigate(projectWorkspacePath(pid, 'graph'));
           return;
         }
       }
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
+  }, [navigate]);
+}
+
+function ProjectIndexRedirect() {
+  const { projectId } = useParams<{ projectId: string }>();
+  if (!projectId) return <Navigate to={PROJECTS_HOME_PATH} replace />;
+  return <Navigate to={projectWorkspacePath(projectId, 'board')} replace />;
+}
+
+function ProjectsHomePage() {
+  useLayoutEffect(() => {
+    useUiStore.getState().setWorkspaceScreen('projects');
+    useUiStore.getState().setCurrentProjectId(null);
+    useUiStore.getState().selectTask(null);
   }, []);
+
+  return (
+    <main className="flex-1 overflow-auto px-4 pb-10 pt-6 sm:px-6">
+      <ProjectHomeGrid />
+    </main>
+  );
+}
+
+function ProjectWorkspacePage() {
+  const { t } = useTranslation();
+  const { projectId, view } = useParams<{
+    projectId: string;
+    view: string;
+  }>();
+  const navigate = useNavigate();
+  const location = useLocation();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const selectTask = useUiStore((s) => s.selectTask);
+  const setSelectionMode = useUiStore((s) => s.setSelectionMode);
+  const selectionMode = useUiStore((s) => s.selectionMode);
+  const setCreateOpen = useUiStore((s) => s.setCreateOpen);
+  const setCommandOpen = useUiStore((s) => s.setCommandOpen);
+  const setShortcutsOpen = useUiStore((s) => s.setShortcutsOpen);
+  const projectsQuery = useProjectsList();
+
+  useLayoutEffect(() => {
+    if (!projectId || !isWorkspaceView(view)) return;
+    useUiStore.getState().setCurrentProjectId(projectId);
+    useUiStore.getState().rememberWorkspaceProject(projectId);
+    useUiStore.getState().setWorkspaceScreen('tasks');
+    useUiStore.getState().setViewMode(view);
+  }, [projectId, view]);
+
+  useEffect(() => {
+    if (!projectId || !isWorkspaceView(view)) return;
+    const tid = searchParams.get('task');
+    selectTask(tid && tid.length > 0 ? tid : null);
+  }, [searchParams, selectTask, projectId, view]);
+
+  if (!projectId) {
+    return <Navigate to={PROJECTS_HOME_PATH} replace />;
+  }
+  if (!isWorkspaceView(view)) {
+    return <Navigate to={projectWorkspacePath(projectId, 'board')} replace />;
+  }
+  const vm: ViewMode = view;
+
+  const onOpenTask = (id: string) => {
+    const next = new URLSearchParams(searchParams);
+    next.set('task', id);
+    setSearchParams(next, { replace: false });
+  };
+
+  const goView = (mode: ViewMode) => {
+    navigate({
+      pathname: projectWorkspacePath(projectId, mode),
+      search: location.search,
+      hash: location.hash,
+    });
+  };
+
+  const taskMain =
+    projectsQuery.isLoading && projectsQuery.data === undefined ? (
+      <p className="text-sm text-fg-secondary">{t('loading.generic')}</p>
+    ) : vm === 'board' ? (
+      <BoardView onOpenTask={onOpenTask} />
+    ) : vm === 'list' ? (
+      <ListView onOpenTask={onOpenTask} />
+    ) : (
+      <TaskGraphView onOpenTask={onOpenTask} />
+    );
+
+  return (
+    <>
+      <header className="shrink-0 border-b border-edge-subtle bg-surface-panel">
+        <div className="flex flex-wrap items-start justify-between gap-3 px-4 py-3 sm:px-6">
+          <div className="min-w-0 flex-1">
+            <ProjectHeaderBar />
+          </div>
+          <ProjectHeaderRightRail
+            projectId={projectId}
+            onOpenCommandPalette={() => setCommandOpen(true)}
+            onOpenShortcuts={() => setShortcutsOpen(true)}
+          />
+        </div>
+        <div className="flex flex-wrap items-center justify-between gap-3 border-t border-edge-subtle px-4 py-2 sm:px-6">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-xs font-medium uppercase tracking-wide text-fg-subtle">
+              {t('projectWorkspace.viewLabel')}
+            </span>
+            <div className="flex rounded-xl border border-edge-subtle p-0.5">
+              {(
+                [
+                  ['board', LayoutGrid, t('nav.board')] as const,
+                  ['list', List, t('nav.list')] as const,
+                  ['graph', GitBranch, t('nav.graph')] as const,
+                ]
+              ).map(([mode, Icon, label]) => (
+                <button
+                  key={mode}
+                  type="button"
+                  onClick={() => goView(mode)}
+                  className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium ${
+                    vm === mode
+                      ? 'bg-surface-active text-fg'
+                      : 'text-fg-secondary hover:bg-surface-hover'
+                  }`}
+                >
+                  <Icon className="h-3.5 w-3.5" />
+                  {label}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            {(vm === 'board' || vm === 'list') && (
+              <button
+                type="button"
+                onClick={() => setSelectionMode(!selectionMode)}
+                className={`inline-flex items-center gap-2 rounded-xl border px-3 py-2 text-sm font-medium transition-colors duration-150 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent active:scale-95 ${
+                  selectionMode
+                    ? 'border-accent bg-accent/10 text-accent'
+                    : 'border-edge bg-surface-panel text-fg hover:bg-surface-hover'
+                }`}
+              >
+                <CheckSquare className="h-4 w-4" />
+                {selectionMode ? t('actions.selecting') : t('actions.select')}
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={() => setCreateOpen(true)}
+              className="inline-flex items-center gap-2 rounded-xl bg-accent px-3 py-2 text-sm font-medium text-white transition-colors duration-150 hover:bg-accent-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-accent enabled:active:scale-95"
+            >
+              <Plus className="h-4 w-4" />
+              {t('actions.newTask')}
+            </button>
+          </div>
+        </div>
+      </header>
+
+      <div className="min-h-0 flex-1 overflow-auto p-4 sm:p-6">{taskMain}</div>
+    </>
+  );
 }
 
 function MainApp() {
@@ -166,60 +347,54 @@ function MainApp() {
   const user = useAuthStore((s) => s.user);
   const clearSession = useAuthStore((s) => s.clearSession);
   const qc = useQueryClient();
+  const navigate = useNavigate();
+  const location = useLocation();
   const [agentKeyModal, setAgentKeyModal] = useState<string | null>(null);
 
   const viewMode = useUiStore((s) => s.viewMode);
-  const setViewMode = useUiStore((s) => s.setViewMode);
   const selectedTaskId = useUiStore((s) => s.selectedTaskId);
   const selectTask = useUiStore((s) => s.selectTask);
   const createOpen = useUiStore((s) => s.createOpen);
   const setCreateOpen = useUiStore((s) => s.setCreateOpen);
   const setCommandOpen = useUiStore((s) => s.setCommandOpen);
-  const setShortcutsOpen = useUiStore((s) => s.setShortcutsOpen);
-  const selectionMode = useUiStore((s) => s.selectionMode);
-  const setSelectionMode = useUiStore((s) => s.setSelectionMode);
   const workspaceScreen = useUiStore((s) => s.workspaceScreen);
-  const setWorkspaceScreen = useUiStore((s) => s.setWorkspaceScreen);
   const currentProjectId = useUiStore((s) => s.currentProjectId);
-  const setCurrentProjectId = useUiStore((s) => s.setCurrentProjectId);
+
+  const { widthPx: sidebarWidthPx, onResizePointerDown } = useSidebarResize();
 
   const projectsQuery = useProjectsList();
+
+  useGlobalShortcuts(navigate);
+
+  useEffect(() => {
+    const m = /^\/projects\/([^/]+)\/(board|list|graph)$/.exec(
+      location.pathname,
+    );
+    if (!m || !projectsQuery.data) return;
+    const pid = m[1]!;
+    const allowed = projectsQuery.data.filter((p) => p.status !== 'cancelled');
+    if (!allowed.some((p) => p.id === pid)) {
+      useUiStore.getState().clearLastWorkspaceProjectIfMatch(pid);
+      navigate(PROJECTS_HOME_PATH, { replace: true });
+    }
+  }, [location.pathname, projectsQuery.data, navigate]);
 
   useTaskEventsStream(
     workspaceScreen === 'tasks' && Boolean(currentProjectId),
   );
 
-  useEffect(() => {
-    const raw = projectsQuery.data;
-    if (!raw) return;
-    const list = raw.filter((p) => p.status !== 'cancelled');
-    const cur = useUiStore.getState().currentProjectId;
-    if (list.length === 0) {
-      if (cur) useUiStore.getState().setCurrentProjectId(null);
-      return;
+  const closeTaskDetail = () => {
+    const next = new URLSearchParams(location.search);
+    if (next.has('task')) {
+      next.delete('task');
+      const q = next.toString();
+      navigate(
+        { pathname: location.pathname, search: q ? `?${q}` : '' },
+        { replace: true },
+      );
+    } else {
+      selectTask(null);
     }
-    if (cur && !list.some((p) => p.id === cur)) {
-      useUiStore.getState().setCurrentProjectId(null);
-      useUiStore.getState().setWorkspaceScreen('projects');
-    }
-  }, [projectsQuery.data]);
-
-  useEffect(() => {
-    if (workspaceScreen !== 'tasks') return;
-    if (projectsQuery.isLoading) return;
-    if (!currentProjectId) {
-      setWorkspaceScreen('projects');
-    }
-  }, [
-    workspaceScreen,
-    currentProjectId,
-    projectsQuery.isLoading,
-    setWorkspaceScreen,
-  ]);
-
-  const openProject = (id: string) => {
-    setCurrentProjectId(id);
-    setWorkspaceScreen('tasks');
   };
 
   const create = useCreateTask();
@@ -255,7 +430,10 @@ function MainApp() {
     );
 
   const fixedSidebar = (
-    <aside className="fixed left-0 top-0 z-[35] flex h-screen w-60 flex-col gap-2 overflow-visible border-r border-edge-subtle bg-surface-base px-3 py-4">
+    <aside
+      className="fixed left-0 top-0 z-[35] flex h-screen flex-col gap-2 overflow-visible border-r border-edge-subtle bg-surface-base px-3 py-4"
+      style={{ width: sidebarWidthPx }}
+    >
       <div className="flex shrink-0 items-start gap-2.5 px-2">
         <AppLogo className="h-9 w-9 shrink-0" />
         <div className="min-w-0">
@@ -268,7 +446,7 @@ function MainApp() {
       <nav className="mt-4 flex min-h-0 flex-1 flex-col gap-1.5 overflow-y-auto overflow-x-visible">
         <button
           type="button"
-          onClick={() => setWorkspaceScreen('projects')}
+          onClick={() => navigate(PROJECTS_HOME_PATH)}
           className={`flex items-center gap-2 rounded-xl px-3 py-2 text-sm font-medium leading-6 transition-colors duration-150 ease-out focus:outline-none focus-visible:ring-2 focus-visible:ring-accent ${
             workspaceScreen === 'projects'
               ? 'bg-surface-active text-fg'
@@ -281,8 +459,9 @@ function MainApp() {
         <button
           type="button"
           onClick={() => {
-            setWorkspaceScreen('tasks');
-            setViewMode('board');
+            const id = resolveProjectIdForTaskNav();
+            if (id) navigate(projectWorkspacePath(id, 'board'));
+            else navigate(PROJECTS_HOME_PATH);
           }}
           className={`flex items-center gap-2 rounded-xl px-3 py-2 text-sm font-medium leading-6 transition-colors duration-150 ease-out focus:outline-none focus-visible:ring-2 focus-visible:ring-accent ${
             workspaceScreen === 'tasks' && viewMode === 'board'
@@ -296,8 +475,9 @@ function MainApp() {
         <button
           type="button"
           onClick={() => {
-            setWorkspaceScreen('tasks');
-            setViewMode('list');
+            const id = resolveProjectIdForTaskNav();
+            if (id) navigate(projectWorkspacePath(id, 'list'));
+            else navigate(PROJECTS_HOME_PATH);
           }}
           className={`flex items-center gap-2 rounded-xl px-3 py-2 text-sm font-medium leading-6 transition-colors duration-150 ease-out focus:outline-none focus-visible:ring-2 focus-visible:ring-accent ${
             workspaceScreen === 'tasks' && viewMode === 'list'
@@ -311,8 +491,9 @@ function MainApp() {
         <button
           type="button"
           onClick={() => {
-            setWorkspaceScreen('tasks');
-            setViewMode('graph');
+            const id = resolveProjectIdForTaskNav();
+            if (id) navigate(projectWorkspacePath(id, 'graph'));
+            else navigate(PROJECTS_HOME_PATH);
           }}
           className={`flex items-center gap-2 rounded-xl px-3 py-2 text-sm font-medium leading-6 transition-colors duration-150 ease-out focus:outline-none focus-visible:ring-2 focus-visible:ring-accent ${
             workspaceScreen === 'tasks' && viewMode === 'graph'
@@ -329,6 +510,12 @@ function MainApp() {
           {profileMenu}
         </div>
       )}
+      <button
+        type="button"
+        aria-label={t('nav.resizeSidebar')}
+        onPointerDown={onResizePointerDown}
+        className="absolute inset-y-0 right-0 z-[40] w-3 translate-x-1/2 cursor-col-resize border-0 bg-transparent p-0 touch-none hover:bg-accent/10 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-surface-base"
+      />
     </aside>
   );
 
@@ -406,10 +593,7 @@ function MainApp() {
       )}
 
       {selectedTaskId && (
-        <TaskDetailPanel
-          taskId={selectedTaskId}
-          onClose={() => selectTask(null)}
-        />
+        <TaskDetailPanel taskId={selectedTaskId} onClose={closeTaskDetail} />
       )}
 
       {agentKeyModal && (
@@ -438,115 +622,30 @@ function MainApp() {
     </>
   );
 
-  const taskMain =
-    projectsQuery.isLoading && projectsQuery.data === undefined ? (
-      <p className="text-sm text-fg-secondary">{t('loading.generic')}</p>
-    ) : !currentProjectId ? (
-      <p className="text-sm text-fg-secondary">{t('loading.generic')}</p>
-    ) : viewMode === 'board' ? (
-      <BoardView onOpenTask={(id) => selectTask(id)} />
-    ) : viewMode === 'list' ? (
-      <ListView onOpenTask={(id) => selectTask(id)} />
-    ) : (
-      <TaskGraphView onOpenTask={(id) => selectTask(id)} />
-    );
-
   return (
     <>
       <div className="flex min-h-screen">
         {fixedSidebar}
-        <div className="relative z-0 flex min-h-screen min-w-0 flex-1 flex-col bg-surface-panel pl-60">
-          {workspaceScreen === 'projects' ? (
-            <main className="flex-1 overflow-auto px-4 pb-10 pt-6 sm:px-6">
-              <ProjectHomeGrid onOpenProject={openProject} />
-            </main>
-          ) : (
-            <>
-              <header className="shrink-0 border-b border-edge-subtle bg-surface-panel">
-                <div className="flex flex-wrap items-start justify-between gap-3 px-4 py-3 sm:px-6">
-                  <div className="min-w-0 flex-1">
-                    <ProjectHeaderBar />
-                  </div>
-                  {currentProjectId && (
-                    <ProjectHeaderRightRail
-                      projectId={currentProjectId}
-                      onOpenCommandPalette={() => setCommandOpen(true)}
-                      onOpenShortcuts={() => setShortcutsOpen(true)}
-                    />
-                  )}
-                </div>
-                <div className="flex flex-wrap items-center justify-between gap-3 border-t border-edge-subtle px-4 py-2 sm:px-6">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <span className="text-xs font-medium uppercase tracking-wide text-fg-subtle">
-                      {t('projectWorkspace.viewLabel')}
-                    </span>
-                    <div className="flex rounded-xl border border-edge-subtle p-0.5">
-                      {(
-                        [
-                          ['board', LayoutGrid, t('nav.board')] as const,
-                          ['list', List, t('nav.list')] as const,
-                          ['graph', GitBranch, t('nav.graph')] as const,
-                        ]
-                      ).map(([mode, Icon, label]) => (
-                        <button
-                          key={mode}
-                          type="button"
-                          onClick={() => setViewMode(mode)}
-                          className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium ${
-                            viewMode === mode
-                              ? 'bg-surface-active text-fg'
-                              : 'text-fg-secondary hover:bg-surface-hover'
-                          }`}
-                        >
-                          <Icon className="h-3.5 w-3.5" />
-                          {label}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                  <div className="flex flex-wrap items-center gap-2">
-                    {(viewMode === 'board' || viewMode === 'list') && (
-                      <button
-                        type="button"
-                        onClick={() => setSelectionMode(!selectionMode)}
-                        className={`inline-flex items-center gap-2 rounded-xl border px-3 py-2 text-sm font-medium transition-colors duration-150 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent active:scale-95 ${
-                          selectionMode
-                            ? 'border-accent bg-accent/10 text-accent'
-                            : 'border-edge bg-surface-panel text-fg hover:bg-surface-hover'
-                        }`}
-                      >
-                        <CheckSquare className="h-4 w-4" />
-                        {selectionMode
-                          ? t('actions.selecting')
-                          : t('actions.select')}
-                      </button>
-                    )}
-                    <button
-                      type="button"
-                      disabled={!currentProjectId}
-                      title={
-                        !currentProjectId
-                          ? t('projects.needProject')
-                          : undefined
-                      }
-                      onClick={() => setCreateOpen(true)}
-                      className="inline-flex items-center gap-2 rounded-xl bg-accent px-3 py-2 text-sm font-medium text-white transition-colors duration-150 hover:bg-accent-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-accent enabled:active:scale-95 disabled:cursor-not-allowed disabled:opacity-50"
-                    >
-                      <Plus className="h-4 w-4" />
-                      {t('actions.newTask')}
-                    </button>
-                    <p className="hidden text-xs text-fg-subtle xl:block">
-                      {t('app.headerHint')}
-                    </p>
-                  </div>
-                </div>
-              </header>
-
-              <div className="min-h-0 flex-1 overflow-auto p-4 sm:p-6">
-                {taskMain}
-              </div>
-            </>
-          )}
+        <div
+          className="relative z-0 flex min-h-screen min-w-0 flex-1 flex-col bg-surface-panel"
+          style={{ paddingLeft: sidebarWidthPx }}
+        >
+          <Routes>
+            <Route
+              path="/"
+              element={<Navigate to={PROJECTS_HOME_PATH} replace />}
+            />
+            <Route path="/projects" element={<ProjectsHomePage />} />
+            <Route path="/projects/:projectId" element={<ProjectIndexRedirect />} />
+            <Route
+              path="/projects/:projectId/:view"
+              element={<ProjectWorkspacePage />}
+            />
+            <Route
+              path="*"
+              element={<Navigate to={PROJECTS_HOME_PATH} replace />}
+            />
+          </Routes>
         </div>
       </div>
       {overlays}
@@ -585,7 +684,6 @@ export default function App() {
 
   useSyncThemeClass();
   useSyncTextSize();
-  useGlobalShortcuts();
 
   if (!hydrated) {
     return (

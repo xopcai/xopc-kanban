@@ -1,6 +1,8 @@
 import { MoreHorizontal, Plus } from 'lucide-react';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useNavigate } from 'react-router-dom';
+import { projectWorkspacePath } from '../../lib/workspaceRoutes';
 import type { Project } from '../../types';
 import {
   useArchiveProject,
@@ -27,12 +29,9 @@ function coverStyle(p: Project): { background: string } {
   };
 }
 
-export function ProjectHomeGrid({
-  onOpenProject,
-}: {
-  onOpenProject: (id: string) => void;
-}) {
+export function ProjectHomeGrid() {
   const { t } = useTranslation();
+  const navigate = useNavigate();
   const user = useAuthStore((s) => s.user);
   const setCurrentProjectId = useUiStore((s) => s.setCurrentProjectId);
   const { data: projects = [], isLoading } = useProjectsList();
@@ -73,6 +72,7 @@ export function ProjectHomeGrid({
     if (!ok) return;
     archive.mutate(p.id, {
       onSuccess: () => {
+        useUiStore.getState().clearLastWorkspaceProjectIfMatch(p.id);
         if (useUiStore.getState().currentProjectId === p.id) {
           setCurrentProjectId(null);
         }
@@ -129,7 +129,7 @@ export function ProjectHomeGrid({
           >
             <button
               type="button"
-              onClick={() => onOpenProject(p.id)}
+              onClick={() => navigate(projectWorkspacePath(p.id, 'board'))}
               className="flex flex-1 flex-col text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent"
             >
               <div

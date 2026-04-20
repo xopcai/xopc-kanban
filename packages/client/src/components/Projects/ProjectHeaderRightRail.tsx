@@ -1,11 +1,4 @@
-import {
-  Bot,
-  HelpCircle,
-  Menu,
-  SlidersHorizontal,
-  User,
-  Zap,
-} from 'lucide-react';
+import { Bot, HelpCircle, Menu, User } from 'lucide-react';
 import {
   useEffect,
   useMemo,
@@ -17,7 +10,6 @@ import { useTranslation } from 'react-i18next';
 import { useProjectMembers, useWorkspaceActors } from '../../hooks/useTasks';
 import { projectMemberLabel } from '../../lib/projectMembers';
 import type { ProjectMember } from '../../types';
-import { useDialogStore } from '../../store/dialogStore';
 import { ProjectMembersPanel } from './ProjectMembersPanel';
 
 const VISIBLE_AVATARS = 5;
@@ -58,12 +50,6 @@ export function ProjectHeaderRightRail({
 
   const visible = sortedMembers.slice(0, VISIBLE_AVATARS);
   const extra = Math.max(0, sortedMembers.length - VISIBLE_AVATARS);
-
-  const comingSoon = () => {
-    void useDialogStore.getState().alert({
-      message: t('projectHeader.comingSoon'),
-    });
-  };
 
   return (
     <div
@@ -126,24 +112,6 @@ export function ProjectHeaderRightRail({
       <div className="hidden h-6 w-px bg-edge-subtle sm:block" />
 
       <div className="flex items-center gap-0.5 sm:gap-1">
-        <HeaderIconButton
-          label={t('projectHeader.aiAssistant')}
-          onClick={comingSoon}
-        >
-          <Bot className="h-4 w-4" />
-        </HeaderIconButton>
-        <HeaderIconButton
-          label={t('projectHeader.automation')}
-          onClick={comingSoon}
-        >
-          <Zap className="h-4 w-4" />
-        </HeaderIconButton>
-        <HeaderIconButton
-          label={t('projectHeader.customize')}
-          onClick={comingSoon}
-        >
-          <SlidersHorizontal className="h-4 w-4" />
-        </HeaderIconButton>
         <HeaderIconButton
           label={t('projectHeader.appMenu')}
           onClick={onOpenCommandPalette}

@@ -3,8 +3,10 @@ import {
   useQuery,
   useQueryClient,
 } from '@tanstack/react-query';
+import { useNavigate } from 'react-router-dom';
 import type { ListTasksParams } from '../api/client';
 import { api } from '../api/client';
+import { projectWorkspacePath } from '../lib/workspaceRoutes';
 import { projectMembersToWorkspaceMembers } from '../lib/members';
 import { useAuthStore } from '../store/authStore';
 import { useUiStore } from '../store/uiStore';
@@ -97,12 +99,12 @@ export function useProjectWorkspaceMembers() {
 
 export function useCreateProject() {
   const qc = useQueryClient();
+  const navigate = useNavigate();
   return useMutation({
     mutationFn: api.createProject,
     onSuccess: (row) => {
-      useUiStore.getState().setCurrentProjectId(row.id);
-      useUiStore.getState().setWorkspaceScreen('tasks');
       void qc.invalidateQueries({ queryKey: projectKeys.all });
+      navigate(projectWorkspacePath(row.id, 'board'));
     },
   });
 }

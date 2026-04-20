@@ -1,6 +1,11 @@
 import { ChevronDown, ChevronLeft, Info, Star } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useNavigate } from 'react-router-dom';
+import {
+  PROJECTS_HOME_PATH,
+  projectWorkspacePath,
+} from '../../lib/workspaceRoutes';
 import type { Project, ProjectPriority, ProjectStatus } from '../../types';
 import { usePatchProject, useProjectsList } from '../../hooks/useTasks';
 import { useAuthStore } from '../../store/authStore';
@@ -90,8 +95,9 @@ function ProjectAvatar({
 
 export function ProjectHeaderBar() {
   const { t } = useTranslation();
+  const navigate = useNavigate();
   const user = useAuthStore((s) => s.user);
-  const setWorkspaceScreen = useUiStore((s) => s.setWorkspaceScreen);
+  const viewMode = useUiStore((s) => s.viewMode);
   const currentProjectId = useUiStore((s) => s.currentProjectId);
   const setCurrentProjectId = useUiStore((s) => s.setCurrentProjectId);
 
@@ -190,7 +196,7 @@ export function ProjectHeaderBar() {
       <div className="flex min-w-0 items-center gap-2 sm:gap-3">
         <button
           type="button"
-          onClick={() => setWorkspaceScreen('projects')}
+          onClick={() => navigate(PROJECTS_HOME_PATH)}
           className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-edge-subtle bg-surface-panel text-fg-secondary shadow-sm transition-colors hover:bg-surface-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
           aria-label={t('projects.backToProjects')}
         >
@@ -199,11 +205,14 @@ export function ProjectHeaderBar() {
 
         <ProjectAvatar project={current} />
 
-        <div className="relative min-w-0 flex-1" ref={pickerWrapRef}>
+        <div
+          className="relative flex min-w-0 flex-1 items-center gap-1 sm:gap-1.5"
+          ref={pickerWrapRef}
+        >
           <button
             type="button"
             onClick={() => setPickerOpen((o) => !o)}
-            className="flex max-w-full items-center gap-1 rounded-xl py-1 pl-1 pr-2 text-left transition-colors hover:bg-surface-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+            className="flex min-w-0 max-w-[min(100%,18rem)] items-center gap-1 rounded-xl py-1 pl-1 pr-2 text-left transition-colors hover:bg-surface-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-accent sm:max-w-md"
             aria-expanded={pickerOpen}
             aria-haspopup="listbox"
           >
@@ -212,6 +221,34 @@ export function ProjectHeaderBar() {
             </span>
             <ChevronDown
               className={`h-4 w-4 shrink-0 text-fg-subtle transition-transform ${pickerOpen ? 'rotate-180' : ''}`}
+            />
+          </button>
+
+          <button
+            type="button"
+            disabled={!user || !current}
+            title={t('projects.editInfoAria')}
+            onClick={() => user && current && setEditOpen(true)}
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-edge-subtle bg-surface-panel text-fg-secondary transition-colors hover:bg-surface-hover hover:text-fg disabled:cursor-not-allowed disabled:opacity-40"
+            aria-label={t('projects.editInfoAria')}
+          >
+            <Info className="h-4 w-4" />
+          </button>
+
+          <button
+            type="button"
+            disabled={!currentProjectId}
+            onClick={toggleStar}
+            className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-edge-subtle bg-surface-panel transition-colors hover:bg-surface-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-accent disabled:opacity-40 ${
+              isStarred ? 'text-amber-500' : 'text-fg-secondary'
+            }`}
+            aria-label={
+              isStarred ? t('projects.unstarProject') : t('projects.starProject')
+            }
+            aria-pressed={isStarred}
+          >
+            <Star
+              className={`h-4 w-4 ${isStarred ? 'fill-amber-400 text-amber-400' : ''}`}
             />
           </button>
 
@@ -230,6 +267,7 @@ export function ProjectHeaderBar() {
                     onClick={() => {
                       setCurrentProjectId(p.id);
                       setPickerOpen(false);
+                      navigate(projectWorkspacePath(p.id, viewMode));
                     }}
                   >
                     <ProjectAvatar project={p} className="!h-8 !w-8 !text-base" />
@@ -245,34 +283,6 @@ export function ProjectHeaderBar() {
             </ul>
           )}
         </div>
-
-        <button
-          type="button"
-          disabled={!user || !current}
-          title={t('projects.editInfoAria')}
-          onClick={() => user && current && setEditOpen(true)}
-          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-edge-subtle bg-surface-panel text-fg-secondary transition-colors hover:bg-surface-hover hover:text-fg disabled:cursor-not-allowed disabled:opacity-40"
-          aria-label={t('projects.editInfoAria')}
-        >
-          <Info className="h-4 w-4" />
-        </button>
-
-        <button
-          type="button"
-          disabled={!currentProjectId}
-          onClick={toggleStar}
-          className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-edge-subtle bg-surface-panel transition-colors hover:bg-surface-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-accent disabled:opacity-40 ${
-            isStarred ? 'text-amber-500' : 'text-fg-secondary'
-          }`}
-          aria-label={
-            isStarred ? t('projects.unstarProject') : t('projects.starProject')
-          }
-          aria-pressed={isStarred}
-        >
-          <Star
-            className={`h-4 w-4 ${isStarred ? 'fill-amber-400 text-amber-400' : ''}`}
-          />
-        </button>
       </div>
 
       {editOpen && current ? (

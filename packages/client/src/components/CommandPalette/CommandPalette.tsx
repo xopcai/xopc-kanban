@@ -1,11 +1,15 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { useTaskList } from '../../hooks/useTasks';
+import { projectWorkspacePath } from '../../lib/workspaceRoutes';
 import { useUiStore, type ThemeMode } from '../../store/uiStore';
 import type { ViewMode } from '../../types';
 
 export function CommandPalette() {
   const { t } = useTranslation();
+  const navigate = useNavigate();
+  const location = useLocation();
   const open = useUiStore((s) => s.commandOpen);
   const setOpen = useUiStore((s) => s.setCommandOpen);
   const themeMode = useUiStore((s) => s.themeMode);
@@ -56,7 +60,36 @@ export function CommandPalette() {
   if (!open) return null;
 
   const goView = (mode: ViewMode) =>
-    run(() => useUiStore.getState().setViewMode(mode));
+    run(() => {
+      const st = useUiStore.getState();
+      const pid = st.currentProjectId ?? st.getLastWorkspaceProjectId();
+      if (pid) {
+        navigate({
+          pathname: projectWorkspacePath(pid, mode),
+          search: location.search,
+          hash: location.hash,
+        });
+      } else {
+        useUiStore.getState().setViewMode(mode);
+      }
+    });
+
+  const openTask = (taskId: string) =>
+    run(() => {
+      const st = useUiStore.getState();
+      const pid = st.currentProjectId ?? st.getLastWorkspaceProjectId();
+      const vm = st.viewMode;
+      if (pid) {
+        const next = new URLSearchParams(location.search);
+        next.set('task', taskId);
+        navigate({
+          pathname: projectWorkspacePath(pid, vm),
+          search: `?${next.toString()}`,
+        });
+      } else {
+        useUiStore.getState().selectTask(taskId);
+      }
+    });
 
   return (
     <>
@@ -94,9 +127,7 @@ export function CommandPalette() {
                 <button
                   type="button"
                   className="flex w-full flex-col rounded-xl px-3 py-2 text-left text-sm transition-colors duration-150 hover:bg-surface-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
-                  onClick={() =>
-                    run(() => useUiStore.getState().selectTask(task.id))
-                  }
+                  onClick={() => openTask(task.id)}
                 >
                   <span className="font-medium leading-6 text-fg">
                     {task.title}

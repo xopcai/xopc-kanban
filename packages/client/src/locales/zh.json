@@ -2,14 +2,14 @@
   "app": {
     "brand": "XOPC",
     "tagline": "任务原生看板",
-    "tasksTitle": "任务",
-    "headerHint": "⌘K 命令面板 · C 新建 · 1–3 视图 · B 多选 · ? 帮助 · 双击卡片标题可重命名"
+    "tasksTitle": "任务"
   },
   "nav": {
     "board": "看板",
     "list": "列表",
     "graph": "关系图",
-    "projects": "项目"
+    "projects": "项目",
+    "resizeSidebar": "拖动调整侧边栏宽度"
   },
   "projects": {
     "pageTitle": "项目",
@@ -77,12 +77,8 @@
   },
   "projectHeader": {
     "invite": "邀请",
-    "aiAssistant": "AI 助理",
-    "automation": "自动化",
-    "customize": "自定义",
     "appMenu": "菜单",
-    "help": "帮助与快捷键",
-    "comingSoon": "该功能即将推出。"
+    "help": "帮助与快捷键"
   },
   "members": {
     "sidebarTitle": "全部成员",
