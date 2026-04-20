@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { useBulkTasks } from '../../hooks/useTasks';
 import { STATUS_ORDER, statusLabel } from '../../lib/taskOrdering';
 import type { TaskStatus } from '../../types';
+import { useDialogStore } from '../../store/dialogStore';
 import { useUiStore } from '../../store/uiStore';
 
 const bulkStatuses = STATUS_ORDER.filter((s) => s !== 'cancelled');
@@ -39,10 +40,12 @@ export function BulkActionsBar() {
               onSuccess: () => {
                 clearSelection();
               },
-              onError: (err) =>
-                window.alert(
-                  err instanceof Error ? err.message : t('bulk.updateFailed'),
-                ),
+              onError: (err) => {
+                void useDialogStore.getState().alert({
+                  message:
+                    err instanceof Error ? err.message : t('bulk.updateFailed'),
+                });
+              },
             },
           );
         }}
@@ -58,21 +61,25 @@ export function BulkActionsBar() {
         type="button"
         className="rounded-xl border border-edge px-3 py-1.5 text-sm font-medium text-fg hover:bg-surface-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
         onClick={() => {
-          if (
-            !confirm(
-              t('bulk.deleteConfirm', { count: selectedTaskIds.length }),
-            )
-          )
-            return;
-          bulk.mutate(
-            { ids: selectedTaskIds, action: 'delete' },
-            {
-              onSuccess: () => {
-                clearSelection();
-                setSelectionMode(false);
+          void (async () => {
+            const ok = await useDialogStore.getState().confirm({
+              message: t('bulk.deleteConfirm', {
+                count: selectedTaskIds.length,
+              }),
+              danger: true,
+              confirmLabel: t('actions.delete'),
+            });
+            if (!ok) return;
+            bulk.mutate(
+              { ids: selectedTaskIds, action: 'delete' },
+              {
+                onSuccess: () => {
+                  clearSelection();
+                  setSelectionMode(false);
+                },
               },
-            },
-          );
+            );
+          })();
         }}
       >
         {t('actions.delete')}

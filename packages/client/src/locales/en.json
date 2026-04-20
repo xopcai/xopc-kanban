@@ -10,6 +10,16 @@
     "list": "List",
     "graph": "Graph"
   },
+  "boardView": {
+    "deleteTaskConfirm": "Delete task {{id}}?"
+  },
+  "dialog": {
+    "notice": "Notice",
+    "confirmTitle": "Please confirm",
+    "ok": "OK",
+    "confirm": "Confirm",
+    "closeOverlay": "Close dialog"
+  },
   "theme": {
     "label": "Theme",
     "system": "System",
@@ -20,6 +30,20 @@
     "label": "Language",
     "en": "English",
     "zh": "中文"
+  },
+  "profile": {
+    "menuHint": "Language, theme, and font size",
+    "textSize": {
+      "label": "Text size",
+      "sm": "Small",
+      "md": "Default",
+      "lg": "Large"
+    },
+    "about": "About",
+    "aboutBody": "Task-native kanban for humans and agents. Built with calm, focused UI.",
+    "version": "Version {{version}}",
+    "openAllSettings": "Open all settings",
+    "closeAbout": "Close about"
   },
   "auth": {
     "title": "Sign in",
@@ -162,6 +186,7 @@
     "requiredBy": "Required by {{id}} ({{type}})",
     "prereqPlaceholder": "Select prerequisite…",
     "linkPrereq": "Link prerequisite",
+    "depLinkFailed": "Could not add dependency",
     "activity": "Activity",
     "notePlaceholder": "Add a note…",
     "addNote": "Add note",

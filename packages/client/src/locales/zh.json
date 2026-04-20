@@ -10,6 +10,16 @@
     "list": "列表",
     "graph": "关系图"
   },
+  "boardView": {
+    "deleteTaskConfirm": "删除任务 {{id}}？"
+  },
+  "dialog": {
+    "notice": "提示",
+    "confirmTitle": "请确认",
+    "ok": "确定",
+    "confirm": "确认",
+    "closeOverlay": "关闭对话框"
+  },
   "theme": {
     "label": "主题",
     "system": "跟随系统",
@@ -20,6 +30,20 @@
     "label": "语言",
     "en": "English",
     "zh": "中文"
+  },
+  "profile": {
+    "menuHint": "语言、主题与字号",
+    "textSize": {
+      "label": "字号大小",
+      "sm": "小",
+      "md": "默认",
+      "lg": "大"
+    },
+    "about": "关于",
+    "aboutBody": "面向人与智能体的任务原生看板，界面克制、专注内容。",
+    "version": "版本 {{version}}",
+    "openAllSettings": "打开全部设置",
+    "closeAbout": "关闭关于"
   },
   "auth": {
     "title": "登录",
@@ -162,6 +186,7 @@
     "requiredBy": "被 {{id}} 所依赖（{{type}}）",
     "prereqPlaceholder": "选择前置任务…",
     "linkPrereq": "关联前置",
+    "depLinkFailed": "无法添加依赖",
     "activity": "动态",
     "notePlaceholder": "添加备注…",
     "addNote": "添加备注",

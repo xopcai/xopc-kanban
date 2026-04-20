@@ -1,30 +1,35 @@
-import {
-  CheckSquare,
-  GitBranch,
-  LayoutGrid,
-  List,
-  Monitor,
-  Moon,
-  Plus,
-  Sun,
-} from 'lucide-react';
+import { CheckSquare, GitBranch, LayoutGrid, List, Plus } from 'lucide-react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { api } from './api/client';
-import type { AppLocale } from './i18n/config';
 import { LoginScreen } from './components/Auth/LoginScreen';
 import { BoardView } from './components/Board/BoardView';
 import { BulkActionsBar } from './components/Board/BulkActionsBar';
+import { DialogHost } from './components/Dialog/DialogHost';
 import { CommandPalette } from './components/CommandPalette/CommandPalette';
 import { ListView } from './components/List/ListView';
 import { ShortcutsHelp } from './components/Shortcuts/ShortcutsHelp';
 import { TaskGraphView } from './components/TaskGraph/TaskGraphView';
+import { AppLogo } from './components/AppLogo';
+import { SidebarProfileMenu } from './components/SidebarProfileMenu';
 import { TaskDetailPanel } from './components/TaskDetail/TaskDetailPanel';
 import { useCreateTask, workspaceKeys } from './hooks/useTasks';
 import { useTaskEventsStream } from './hooks/useSSE';
 import { useAuthStore } from './store/authStore';
-import { useUiStore, type ThemeMode } from './store/uiStore';
+import { useDialogStore } from './store/dialogStore';
+import { useUiStore } from './store/uiStore';
+
+/** Maps UI text size to root `font-size` so Tailwind `rem` typography scales consistently. */
+function useSyncTextSize() {
+  const textSize = useUiStore((s) => s.textSize);
+  useEffect(() => {
+    const px =
+      textSize === 'sm' ? '14px' : textSize === 'lg' ? '17px' : '15px';
+    document.documentElement.style.fontSize = px;
+    document.documentElement.dataset.textSize = textSize;
+  }, [textSize]);
+}
 
 function useSyncThemeClass() {
   const themeMode = useUiStore((s) => s.themeMode);
@@ -50,6 +55,11 @@ function useGlobalShortcuts() {
       const st = useUiStore.getState();
 
       if (e.key === 'Escape') {
+        if (useDialogStore.getState().dialog) {
+          e.preventDefault();
+          useDialogStore.getState().dismiss();
+          return;
+        }
         if (st.shortcutsOpen) {
           e.preventDefault();
           st.setShortcutsOpen(false);
@@ -126,14 +136,8 @@ function useGlobalShortcuts() {
   }, []);
 }
 
-const THEME_ICON: Record<ThemeMode, typeof Sun> = {
-  light: Sun,
-  dark: Moon,
-  system: Monitor,
-};
-
 function MainApp() {
-  const { t, i18n } = useTranslation();
+  const { t } = useTranslation();
   const user = useAuthStore((s) => s.user);
   const clearSession = useAuthStore((s) => s.clearSession);
   const qc = useQueryClient();
@@ -147,30 +151,24 @@ function MainApp() {
   const selectTask = useUiStore((s) => s.selectTask);
   const createOpen = useUiStore((s) => s.createOpen);
   const setCreateOpen = useUiStore((s) => s.setCreateOpen);
-  const themeMode = useUiStore((s) => s.themeMode);
-  const setThemeMode = useUiStore((s) => s.setThemeMode);
+  const setCommandOpen = useUiStore((s) => s.setCommandOpen);
   const selectionMode = useUiStore((s) => s.selectionMode);
   const setSelectionMode = useUiStore((s) => s.setSelectionMode);
 
   const create = useCreateTask();
   const [newTitle, setNewTitle] = useState('');
 
-  const cycleTheme = () => {
-    const order: ThemeMode[] = ['system', 'light', 'dark'];
-    const i = order.indexOf(themeMode);
-    setThemeMode(order[(i + 1) % order.length]!);
-  };
-
-  const ThemeIcon = THEME_ICON[themeMode];
-
   return (
     <div className="flex min-h-screen">
-      <aside className="flex w-60 shrink-0 flex-col gap-2 bg-surface-base px-3 py-4">
-        <div className="px-2">
-          <p className="text-xl font-semibold tracking-tight text-fg">
-            {t('app.brand')}
-          </p>
-          <p className="text-xs leading-5 text-fg-subtle">{t('app.tagline')}</p>
+      <aside className="flex min-h-screen w-60 shrink-0 flex-col gap-2 bg-surface-base px-3 py-4">
+        <div className="flex items-start gap-2.5 px-2">
+          <AppLogo className="h-9 w-9" />
+          <div className="min-w-0">
+            <p className="text-xl font-semibold tracking-tight text-fg">
+              {t('app.brand')}
+            </p>
+            <p className="text-xs leading-5 text-fg-subtle">{t('app.tagline')}</p>
+          </div>
         </div>
         <nav className="mt-4 flex flex-col gap-1.5">
           <button
@@ -212,73 +210,33 @@ function MainApp() {
         </nav>
 
         {user && (
-          <div className="border-t border-edge-subtle px-2 py-3">
-            <p className="truncate text-sm font-medium text-fg">
-              {user.typ === 'member' ? user.displayName : user.name}
-            </p>
-            {user.typ === 'member' && (
-              <p className="truncate text-xs text-fg-subtle">{user.email}</p>
-            )}
-            <div className="mt-2 flex flex-col gap-1">
-              {user.typ === 'member' && (
-                <button
-                  type="button"
-                  className="rounded-lg px-2 py-1.5 text-left text-xs font-medium text-fg-secondary hover:bg-surface-hover"
-                  onClick={() => {
-                    const name = window.prompt(t('auth.agentNamePlaceholder'));
-                    if (!name?.trim()) return;
-                    void (async () => {
-                      try {
-                        const out = await api.createAgent({ name: name.trim() });
-                        setAgentKeyModal(out.apiKey);
-                        void qc.invalidateQueries({ queryKey: workspaceKeys.actors });
-                      } catch (e) {
-                        window.alert(
-                          e instanceof Error ? e.message : t('auth.error'),
-                        );
-                      }
-                    })();
-                  }}
-                >
-                  {t('auth.newAgent')}
-                </button>
-              )}
-              <button
-                type="button"
-                className="rounded-lg px-2 py-1.5 text-left text-xs font-medium text-fg-secondary hover:bg-surface-hover"
-                onClick={() => clearSession()}
-              >
-                {t('auth.logout')}
-              </button>
-            </div>
-          </div>
+          <SidebarProfileMenu
+            user={user}
+            onLogout={() => clearSession()}
+            onNewAgent={() => {
+              void (async () => {
+                const name = await useDialogStore.getState().prompt({
+                  title: t('auth.newAgent'),
+                  placeholder: t('auth.agentNamePlaceholder'),
+                  defaultValue: '',
+                  confirmLabel: t('actions.create'),
+                });
+                if (!name?.trim()) return;
+                try {
+                  const out = await api.createAgent({ name: name.trim() });
+                  setAgentKeyModal(out.apiKey);
+                  void qc.invalidateQueries({ queryKey: workspaceKeys.actors });
+                } catch (e) {
+                  await useDialogStore.getState().alert({
+                    message:
+                      e instanceof Error ? e.message : t('auth.error'),
+                  });
+                }
+              })();
+            }}
+            onOpenAllSettings={() => setCommandOpen(true)}
+          />
         )}
-
-        <div className="mt-auto flex flex-col gap-1.5 border-t border-edge-subtle pt-3">
-          <label className="flex flex-col gap-1 px-1">
-            <span className="text-xs font-medium text-fg-subtle">
-              {t('language.label')}
-            </span>
-            <select
-              className="rounded-xl border border-edge bg-surface-panel px-2 py-2 text-sm text-fg focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
-              value={i18n.language.startsWith('zh') ? 'zh' : 'en'}
-              onChange={(e) => {
-                void i18n.changeLanguage(e.target.value as AppLocale);
-              }}
-            >
-              <option value="en">{t('language.en')}</option>
-              <option value="zh">{t('language.zh')}</option>
-            </select>
-          </label>
-          <button
-            type="button"
-            onClick={cycleTheme}
-            className="flex items-center gap-2 rounded-xl px-3 py-2 text-sm font-medium leading-6 text-fg-secondary transition-colors duration-150 hover:bg-surface-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
-          >
-            <ThemeIcon className="h-5 w-5 text-fg-subtle" />
-            {t('theme.label')}: {t(`theme.${themeMode}`)}
-          </button>
-        </div>
       </aside>
 
       <main className="flex min-w-0 flex-1 flex-col bg-surface-panel">
@@ -330,6 +288,7 @@ function MainApp() {
 
       <CommandPalette />
       <ShortcutsHelp />
+      <DialogHost />
       <BulkActionsBar />
 
       {createOpen && (
@@ -462,11 +421,13 @@ export default function App() {
   }, [hydrated, token, meQuery.isFetching, meQuery.isError, clearSession]);
 
   useSyncThemeClass();
+  useSyncTextSize();
   useGlobalShortcuts();
 
   if (!hydrated) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-surface-base text-fg-secondary">
+      <div className="flex min-h-screen flex-col items-center justify-center gap-4 bg-surface-base text-fg-secondary">
+        <AppLogo className="h-12 w-12 opacity-90" />
         {t('auth.loading')}
       </div>
     );
@@ -478,7 +439,8 @@ export default function App() {
 
   if (!user && meQuery.isFetching) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-surface-base text-fg-secondary">
+      <div className="flex min-h-screen flex-col items-center justify-center gap-4 bg-surface-base text-fg-secondary">
+        <AppLogo className="h-12 w-12 opacity-90" />
         {t('auth.loading')}
       </div>
     );

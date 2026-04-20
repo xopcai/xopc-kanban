@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { api } from '../../api/client';
+import { AppLogo } from '../AppLogo';
 import { useAuthStore } from '../../store/authStore';
 
 export function LoginScreen() {
@@ -47,6 +48,9 @@ export function LoginScreen() {
 
   return (
     <div className="flex min-h-screen flex-col items-center justify-center bg-surface-base px-4 py-8">
+      <div className="mb-6">
+        <AppLogo className="mx-auto h-14 w-14" />
+      </div>
       <div className="w-full max-w-sm rounded-2xl border border-edge-subtle bg-surface-panel p-6 shadow-elevated">
         <h1 className="text-xl font-semibold text-fg">
           {mode === 'login' ? t('auth.title') : t('auth.registerTitle')}

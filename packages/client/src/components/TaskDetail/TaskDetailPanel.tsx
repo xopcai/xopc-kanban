@@ -23,6 +23,7 @@ import { useIsDark } from '../../hooks/useIsDark';
 import { actorsToWorkspaceMembers } from '../../lib/members';
 import { statusLabel } from '../../lib/taskOrdering';
 import type { TaskStatus } from '../../types';
+import { useDialogStore } from '../../store/dialogStore';
 import { MemoryTimeline } from './MemoryTimeline';
 
 const statuses: TaskStatus[] = [
@@ -282,12 +283,14 @@ export function TaskDetailPanel({
                               labelIds: [...task.labels.map((l) => l.id), created.id],
                             });
                           },
-                          onError: (err) =>
-                            window.alert(
-                              err instanceof Error
-                                ? err.message
-                                : t('detail.labelCreateErr'),
-                            ),
+                          onError: (err) => {
+                            void useDialogStore.getState().alert({
+                              message:
+                                err instanceof Error
+                                  ? err.message
+                                  : t('detail.labelCreateErr'),
+                            });
+                          },
                         },
                       );
                     }}
@@ -460,9 +463,12 @@ export function TaskDetailPanel({
                         {
                           onSuccess: () => setDependsOnPick(''),
                           onError: (err) => {
-                            window.alert(
-                              err instanceof Error ? err.message : 'Failed to add',
-                            );
+                            void useDialogStore.getState().alert({
+                              message:
+                                err instanceof Error
+                                  ? err.message
+                                  : t('detail.depLinkFailed'),
+                            });
                           },
                         },
                       );
@@ -509,10 +515,17 @@ export function TaskDetailPanel({
                   type="button"
                   className="rounded-xl border border-edge bg-surface-panel px-4 py-2 text-sm font-medium text-fg transition-colors duration-150 hover:bg-surface-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-accent active:scale-95"
                   onClick={() => {
-                    if (!confirm(t('detail.deleteConfirm'))) return;
-                    delTask.mutate(task.id, {
-                      onSuccess: () => onClose(),
-                    });
+                    void (async () => {
+                      const ok = await useDialogStore.getState().confirm({
+                        message: t('detail.deleteConfirm'),
+                        danger: true,
+                        confirmLabel: t('actions.delete'),
+                      });
+                      if (!ok) return;
+                      delTask.mutate(task.id, {
+                        onSuccess: () => onClose(),
+                      });
+                    })();
                   }}
                 >
                   {t('detail.deleteTask')}

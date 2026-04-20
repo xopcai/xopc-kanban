@@ -20,6 +20,7 @@ import {
   useUpdateTaskTitle,
   useWorkspaceActors,
 } from '../../hooks/useTasks';
+import { useDialogStore } from '../../store/dialogStore';
 import { useUiStore } from '../../store/uiStore';
 import { BoardColumn } from './BoardColumn';
 import { TaskContextMenu } from './TaskContextMenu';
@@ -156,8 +157,19 @@ export function BoardView({ onOpenTask }: { onOpenTask: (id: string) => void }) 
             }
           }}
           onDelete={() => {
-            if (!confirm(`Delete ${menu.task.identifier}?`)) return;
-            delTask.mutate(menu.task.id);
+            const task = menu.task;
+            setMenu(null);
+            void (async () => {
+              const ok = await useDialogStore.getState().confirm({
+                message: t('boardView.deleteTaskConfirm', {
+                  id: task.identifier,
+                }),
+                danger: true,
+                confirmLabel: t('actions.delete'),
+              });
+              if (!ok) return;
+              delTask.mutate(task.id);
+            })();
           }}
         />
       )}
