@@ -1,0 +1,12 @@
+---
+description: React client — state, data fetching, structure
+globs: packages/client/**/*.{ts,tsx}
+alwaysApply: false
+---
+
+# Client (`packages/client`)
+
+- **栈**：Vite、React 18、TypeScript；Zustand（UI：选中任务、视图模式、筛选）+ TanStack Query（服务端数据、乐观更新）；SSE hook 触发 invalidate。
+- **结构**：`components/`（Board、List、TaskDetail、TaskGraph、`ui/`）；`store/`、`hooks/`、`api/client.ts`、`types/`。
+- **拖拽**：@dnd-kit；跨列映射为状态变更 API。
+- **类型**：与 server 共享或镜像 `Task`、`TaskEvent` 等，避免魔法字符串。

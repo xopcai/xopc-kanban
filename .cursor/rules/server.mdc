@@ -1,0 +1,12 @@
+---
+description: Hono server, SQLite, API conventions
+globs: packages/server/**/*.ts
+alwaysApply: false
+---
+
+# Server (`packages/server`)
+
+- **框架**：Hono；REST + SSE（`/api/events` 等），预留 `routes/agent.ts`。
+- **数据**：better-sqlite3 + drizzle；迁移在 `db/migrations`；表名与列与 task-native-design §4.2 对齐（snake_case 存库）。
+- **业务**：TaskService / MemoryService / EventBus；状态 PATCH 需校验状态机；发布事件供 SSE 广播。
+- **ID**：nanoid；`task.number` + `identifier` 规则见设计文档；JSON 列用明确类型解析/序列化。

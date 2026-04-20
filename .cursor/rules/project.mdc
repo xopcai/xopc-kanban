@@ -1,0 +1,12 @@
+---
+description: XOPC Kanban monorepo context and agent workflow
+alwaysApply: true
+---
+
+# XOPC Kanban — 全局
+
+- **设计**：`docs/task-native-design.md`（领域、API、Schema、目录）；`DESIGN.md`（UI 语言 Calm Intelligence）。
+- **结构**：pnpm monorepo，`packages/server`（Hono）、`packages/client`（Vite/React）；数据 SQLite + drizzle；SSE 推送任务变更。
+- **原则**：最小必要改动；类型与文档中的 Task/Actor/状态机一致；服务端分层 `routes` → `services` → `db`。
+- **Phase**：MVP 不含 Agent 执行引擎；`/api/agent/*` 可占位，勿深度耦合。
+- **完成后**：运行工作区 lint/typecheck/test（以根 `package.json` 为准）。

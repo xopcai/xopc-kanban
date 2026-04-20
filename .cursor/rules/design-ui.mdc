@@ -1,0 +1,14 @@
+---
+description: Calm Intelligence UI — tokens, motion, a11y
+globs: packages/client/**/*.tsx
+alwaysApply: false
+---
+
+# UI / DESIGN.md
+
+- **气质**：中性灰为主（~95% 面积），**单一蓝色 accent** 主操作；状态用低饱和色点，不用彩虹列。
+- **Token**：表面 `surface-base` / `surface-panel` / `surface-hover`；文本 `fg` / `fg-secondary` / `fg-subtle`；边 `edge` / `edge-subtle`；Tailwind 语义类优先，避免组件内散落 hex。
+- **布局**：侧栏 ~240px，与主区 **仅靠色面区分，无竖线切屏**；详情面板右侧滑出 ~480px。
+- **组件**：Lucide outline；主按钮 `rounded-xl`、`font-medium`、`active:scale-95`；焦点 `ring-2 ring-accent`、`focus-visible`。
+- **动效**：150–300ms `ease-out`；**禁止 `transition-all`**；仅 `transform`/`opacity`；必须支持 `prefers-reduced-motion`。
+- **字阶**：Title `text-xl tracking-tight`，Body `text-sm leading-relaxed`，UI `text-sm leading-6`，Caption `text-xs` — 见 DESIGN.md §3。
