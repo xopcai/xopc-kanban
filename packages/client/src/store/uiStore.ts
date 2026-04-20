@@ -9,6 +9,7 @@ export type TextSize = 'sm' | 'md' | 'lg';
 const THEME_KEY = 'xopc-theme';
 const TEXT_SIZE_KEY = 'xopc-text-size';
 const CURRENT_PROJECT_KEY = 'xopc-current-project';
+const WORKSPACE_SCREEN_KEY = 'xopc-workspace-screen';
 /** @deprecated read for migration only */
 const LEGACY_CONV_TEXT_KEY = 'xopc-conv-text';
 
@@ -30,6 +31,16 @@ function readStoredCurrentProjectId(): string | null {
     /* ignore */
   }
   return null;
+}
+
+function readStoredWorkspaceScreen(): WorkspaceScreen {
+  try {
+    const v = localStorage.getItem(WORKSPACE_SCREEN_KEY);
+    if (v === 'tasks' || v === 'projects') return v;
+  } catch {
+    /* ignore */
+  }
+  return 'projects';
 }
 
 function readStoredTextSize(): TextSize {
@@ -61,7 +72,7 @@ interface UiState {
   selectedTaskId: string | null;
   /** Active project for task list / create; must match a row the user can access. */
   currentProjectId: string | null;
-  /** Main area: kanban views vs project & member management. */
+  /** Main area: project home grid vs task workspace. */
   workspaceScreen: WorkspaceScreen;
   viewMode: ViewMode;
   createOpen: boolean;
@@ -91,7 +102,7 @@ interface UiState {
 export const useUiStore = create<UiState>((set, get) => ({
   selectedTaskId: null,
   currentProjectId: readStoredCurrentProjectId(),
-  workspaceScreen: 'tasks',
+  workspaceScreen: readStoredWorkspaceScreen(),
   viewMode: 'board',
   createOpen: false,
   commandOpen: false,
@@ -111,7 +122,14 @@ export const useUiStore = create<UiState>((set, get) => ({
     }
     set({ currentProjectId: id });
   },
-  setWorkspaceScreen: (screen) => set({ workspaceScreen: screen }),
+  setWorkspaceScreen: (screen) => {
+    try {
+      localStorage.setItem(WORKSPACE_SCREEN_KEY, screen);
+    } catch {
+      /* ignore */
+    }
+    set({ workspaceScreen: screen });
+  },
   setViewMode: (mode) => set({ viewMode: mode }),
   setCreateOpen: (open) => set({ createOpen: open }),
   setCommandOpen: (open) => set({ commandOpen: open }),

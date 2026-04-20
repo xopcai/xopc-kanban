@@ -5,9 +5,11 @@ import {
 } from '@tanstack/react-query';
 import type { ListTasksParams } from '../api/client';
 import { api } from '../api/client';
+import { projectMembersToWorkspaceMembers } from '../lib/members';
 import { useAuthStore } from '../store/authStore';
 import { useUiStore } from '../store/uiStore';
 import type { DependencyType, TaskStatus } from '../types';
+import { useMemo } from 'react';
 
 export const workspaceKeys = {
   actors: ['workspace', 'actors'] as const,
@@ -82,12 +84,24 @@ export function useProjectMembers(projectId: string | null) {
   });
 }
 
+/** Members of the current project, shaped for assignee filters and menus. */
+export function useProjectWorkspaceMembers() {
+  const projectId = useUiStore((s) => s.currentProjectId);
+  const { data: members = [] } = useProjectMembers(projectId);
+  const { data: actors } = useWorkspaceActors();
+  return useMemo(
+    () => projectMembersToWorkspaceMembers(members, actors),
+    [members, actors],
+  );
+}
+
 export function useCreateProject() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: api.createProject,
     onSuccess: (row) => {
       useUiStore.getState().setCurrentProjectId(row.id);
+      useUiStore.getState().setWorkspaceScreen('tasks');
       void qc.invalidateQueries({ queryKey: projectKeys.all });
     },
   });

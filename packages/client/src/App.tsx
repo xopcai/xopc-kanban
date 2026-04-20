@@ -7,7 +7,7 @@ import {
   Plus,
 } from 'lucide-react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { api } from './api/client';
 import { LoginScreen } from './components/Auth/LoginScreen';
@@ -21,8 +21,9 @@ import { TaskGraphView } from './components/TaskGraph/TaskGraphView';
 import { AppLogo } from './components/AppLogo';
 import { SidebarProfileMenu } from './components/SidebarProfileMenu';
 import { TaskDetailPanel } from './components/TaskDetail/TaskDetailPanel';
-import { ProjectSwitcher } from './components/Projects/ProjectSwitcher';
-import { ProjectsScreen } from './components/Projects/ProjectsScreen';
+import { ProjectHomeGrid } from './components/Projects/ProjectHomeGrid';
+import { ProjectHeaderBar } from './components/Projects/ProjectHeaderBar';
+import { ProjectHeaderRightRail } from './components/Projects/ProjectHeaderRightRail';
 import { useCreateTask, useProjectsList, workspaceKeys } from './hooks/useTasks';
 import { useTaskEventsStream } from './hooks/useSSE';
 import { useAuthStore } from './store/authStore';
@@ -115,6 +116,9 @@ function useGlobalShortcuts() {
           !e.ctrlKey &&
           !e.altKey
         ) {
+          if (st.workspaceScreen !== 'tasks') {
+            return;
+          }
           const vm = st.viewMode;
           if (vm === 'board' || vm === 'list') {
             e.preventDefault();
@@ -123,19 +127,30 @@ function useGlobalShortcuts() {
           return;
         }
         if ((e.key === 'c' || e.key === 'C') && !e.metaKey && !e.ctrlKey && !e.altKey) {
-          if (!useUiStore.getState().currentProjectId) return;
+          if (st.workspaceScreen !== 'tasks' || !st.currentProjectId) {
+            return;
+          }
           st.setCreateOpen(true);
           return;
         }
         if (e.key === '1') {
+          if (st.workspaceScreen !== 'tasks') {
+            return;
+          }
           st.setViewMode('board');
           return;
         }
         if (e.key === '2') {
+          if (st.workspaceScreen !== 'tasks') {
+            return;
+          }
           st.setViewMode('list');
           return;
         }
         if (e.key === '3') {
+          if (st.workspaceScreen !== 'tasks') {
+            return;
+          }
           st.setViewMode('graph');
           return;
         }
@@ -153,8 +168,6 @@ function MainApp() {
   const qc = useQueryClient();
   const [agentKeyModal, setAgentKeyModal] = useState<string | null>(null);
 
-  useTaskEventsStream(true);
-
   const viewMode = useUiStore((s) => s.viewMode);
   const setViewMode = useUiStore((s) => s.setViewMode);
   const selectedTaskId = useUiStore((s) => s.selectedTaskId);
@@ -162,211 +175,165 @@ function MainApp() {
   const createOpen = useUiStore((s) => s.createOpen);
   const setCreateOpen = useUiStore((s) => s.setCreateOpen);
   const setCommandOpen = useUiStore((s) => s.setCommandOpen);
+  const setShortcutsOpen = useUiStore((s) => s.setShortcutsOpen);
   const selectionMode = useUiStore((s) => s.selectionMode);
   const setSelectionMode = useUiStore((s) => s.setSelectionMode);
   const workspaceScreen = useUiStore((s) => s.workspaceScreen);
   const setWorkspaceScreen = useUiStore((s) => s.setWorkspaceScreen);
   const currentProjectId = useUiStore((s) => s.currentProjectId);
+  const setCurrentProjectId = useUiStore((s) => s.setCurrentProjectId);
 
   const projectsQuery = useProjectsList();
 
-  const activeProjects = useMemo(
-    () => projectsQuery.data?.filter((p) => p.status !== 'cancelled') ?? [],
-    [projectsQuery.data],
+  useTaskEventsStream(
+    workspaceScreen === 'tasks' && Boolean(currentProjectId),
   );
 
   useEffect(() => {
     const raw = projectsQuery.data;
     if (!raw) return;
     const list = raw.filter((p) => p.status !== 'cancelled');
+    const cur = useUiStore.getState().currentProjectId;
     if (list.length === 0) {
-      if (useUiStore.getState().currentProjectId) {
-        useUiStore.getState().setCurrentProjectId(null);
-      }
+      if (cur) useUiStore.getState().setCurrentProjectId(null);
       return;
     }
-    const cur = useUiStore.getState().currentProjectId;
-    if (!cur || !list.some((p) => p.id === cur)) {
-      useUiStore.getState().setCurrentProjectId(list[0]!.id);
+    if (cur && !list.some((p) => p.id === cur)) {
+      useUiStore.getState().setCurrentProjectId(null);
+      useUiStore.getState().setWorkspaceScreen('projects');
     }
   }, [projectsQuery.data]);
+
+  useEffect(() => {
+    if (workspaceScreen !== 'tasks') return;
+    if (projectsQuery.isLoading) return;
+    if (!currentProjectId) {
+      setWorkspaceScreen('projects');
+    }
+  }, [
+    workspaceScreen,
+    currentProjectId,
+    projectsQuery.isLoading,
+    setWorkspaceScreen,
+  ]);
+
+  const openProject = (id: string) => {
+    setCurrentProjectId(id);
+    setWorkspaceScreen('tasks');
+  };
 
   const create = useCreateTask();
   const [newTitle, setNewTitle] = useState('');
 
-  return (
-    <div className="flex min-h-screen">
-      <aside className="flex min-h-screen w-60 shrink-0 flex-col gap-2 bg-surface-base px-3 py-4">
-        <div className="flex items-start gap-2.5 px-2">
-          <AppLogo className="h-9 w-9" />
-          <div className="min-w-0">
-            <p className="text-xl font-semibold tracking-tight text-fg">
-              {t('app.brand')}
-            </p>
-            <p className="text-xs leading-5 text-fg-subtle">{t('app.tagline')}</p>
-          </div>
+  const profileMenu =
+    user && (
+      <SidebarProfileMenu
+        user={user}
+        onLogout={() => clearSession()}
+        onNewAgent={() => {
+          void (async () => {
+            const name = await useDialogStore.getState().prompt({
+              title: t('auth.newAgent'),
+              placeholder: t('auth.agentNamePlaceholder'),
+              defaultValue: '',
+              confirmLabel: t('actions.create'),
+            });
+            if (!name?.trim()) return;
+            try {
+              const out = await api.createAgent({ name: name.trim() });
+              setAgentKeyModal(out.apiKey);
+              void qc.invalidateQueries({ queryKey: workspaceKeys.actors });
+            } catch (e) {
+              await useDialogStore.getState().alert({
+                message: e instanceof Error ? e.message : t('auth.error'),
+              });
+            }
+          })();
+        }}
+        onOpenAllSettings={() => setCommandOpen(true)}
+      />
+    );
+
+  const fixedSidebar = (
+    <aside className="fixed left-0 top-0 z-[35] flex h-screen w-60 flex-col gap-2 overflow-visible border-r border-edge-subtle bg-surface-base px-3 py-4">
+      <div className="flex shrink-0 items-start gap-2.5 px-2">
+        <AppLogo className="h-9 w-9 shrink-0" />
+        <div className="min-w-0">
+          <p className="text-xl font-semibold tracking-tight text-fg">
+            {t('app.brand')}
+          </p>
+          <p className="text-xs leading-5 text-fg-subtle">{t('app.tagline')}</p>
         </div>
-        <nav className="mt-4 flex flex-col gap-1.5">
-          <button
-            type="button"
-            onClick={() => {
-              setWorkspaceScreen('tasks');
-              setViewMode('board');
-            }}
-            className={`flex items-center gap-2 rounded-xl px-3 py-2 text-sm font-medium leading-6 transition-colors duration-150 ease-out focus:outline-none focus-visible:ring-2 focus-visible:ring-accent ${
-              workspaceScreen === 'tasks' && viewMode === 'board'
-                ? 'bg-surface-active text-fg'
-                : 'text-fg-secondary hover:bg-surface-hover'
-            }`}
-          >
-            <LayoutGrid className="h-5 w-5 text-fg-subtle" />
-            {t('nav.board')}
-          </button>
-          <button
-            type="button"
-            onClick={() => {
-              setWorkspaceScreen('tasks');
-              setViewMode('list');
-            }}
-            className={`flex items-center gap-2 rounded-xl px-3 py-2 text-sm font-medium leading-6 transition-colors duration-150 ease-out focus:outline-none focus-visible:ring-2 focus-visible:ring-accent ${
-              workspaceScreen === 'tasks' && viewMode === 'list'
-                ? 'bg-surface-active text-fg'
-                : 'text-fg-secondary hover:bg-surface-hover'
-            }`}
-          >
-            <List className="h-5 w-5 text-fg-subtle" />
-            {t('nav.list')}
-          </button>
-          <button
-            type="button"
-            onClick={() => {
-              setWorkspaceScreen('tasks');
-              setViewMode('graph');
-            }}
-            className={`flex items-center gap-2 rounded-xl px-3 py-2 text-sm font-medium leading-6 transition-colors duration-150 ease-out focus:outline-none focus-visible:ring-2 focus-visible:ring-accent ${
-              workspaceScreen === 'tasks' && viewMode === 'graph'
-                ? 'bg-surface-active text-fg'
-                : 'text-fg-secondary hover:bg-surface-hover'
-            }`}
-          >
-            <GitBranch className="h-5 w-5 text-fg-subtle" />
-            {t('nav.graph')}
-          </button>
-          <button
-            type="button"
-            onClick={() => setWorkspaceScreen('projects')}
-            className={`flex items-center gap-2 rounded-xl px-3 py-2 text-sm font-medium leading-6 transition-colors duration-150 ease-out focus:outline-none focus-visible:ring-2 focus-visible:ring-accent ${
-              workspaceScreen === 'projects'
-                ? 'bg-surface-active text-fg'
-                : 'text-fg-secondary hover:bg-surface-hover'
-            }`}
-          >
-            <FolderKanban className="h-5 w-5 text-fg-subtle" />
-            {t('nav.projects')}
-          </button>
-        </nav>
-
-        {user && (
-          <SidebarProfileMenu
-            user={user}
-            onLogout={() => clearSession()}
-            onNewAgent={() => {
-              void (async () => {
-                const name = await useDialogStore.getState().prompt({
-                  title: t('auth.newAgent'),
-                  placeholder: t('auth.agentNamePlaceholder'),
-                  defaultValue: '',
-                  confirmLabel: t('actions.create'),
-                });
-                if (!name?.trim()) return;
-                try {
-                  const out = await api.createAgent({ name: name.trim() });
-                  setAgentKeyModal(out.apiKey);
-                  void qc.invalidateQueries({ queryKey: workspaceKeys.actors });
-                } catch (e) {
-                  await useDialogStore.getState().alert({
-                    message:
-                      e instanceof Error ? e.message : t('auth.error'),
-                  });
-                }
-              })();
-            }}
-            onOpenAllSettings={() => setCommandOpen(true)}
-          />
-        )}
-      </aside>
-
-      <main className="flex min-w-0 flex-1 flex-col bg-surface-panel">
-        <header className="flex flex-wrap items-center justify-between gap-3 border-b border-edge-subtle px-6 py-3">
-          <div>
-            <h1 className="text-xl font-semibold tracking-tight text-fg">
-              {workspaceScreen === 'tasks' ? t('app.tasksTitle') : t('projects.pageTitle')}
-            </h1>
-            <p className="text-sm leading-relaxed text-fg-secondary">
-              {workspaceScreen === 'tasks' ? t('app.headerHint') : t('projects.pageSubtitle')}
-            </p>
-          </div>
-          <div className="flex flex-wrap items-center gap-3">
-            {workspaceScreen === 'tasks' && <ProjectSwitcher />}
-            <div className="flex flex-wrap items-center gap-2">
-              {workspaceScreen === 'tasks' && (viewMode === 'board' || viewMode === 'list') && (
-                <button
-                  type="button"
-                  onClick={() => setSelectionMode(!selectionMode)}
-                  className={`inline-flex items-center gap-2 rounded-xl border px-4 py-2 text-sm font-medium transition-colors duration-150 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent active:scale-95 ${
-                    selectionMode
-                      ? 'border-accent bg-accent/10 text-accent'
-                      : 'border-edge bg-surface-panel text-fg hover:bg-surface-hover'
-                  }`}
-                >
-                  <CheckSquare className="h-4 w-4" />
-                  {selectionMode ? t('actions.selecting') : t('actions.select')}
-                </button>
-              )}
-              {workspaceScreen === 'tasks' && (
-                <button
-                  type="button"
-                  disabled={!currentProjectId}
-                  title={!currentProjectId ? t('projects.needProject') : undefined}
-                  onClick={() => setCreateOpen(true)}
-                  className="inline-flex items-center gap-2 rounded-xl bg-accent px-4 py-2 text-sm font-medium text-white transition-colors duration-150 hover:bg-accent-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-accent enabled:active:scale-95 disabled:cursor-not-allowed disabled:opacity-50"
-                >
-                  <Plus className="h-4 w-4" />
-                  {t('actions.newTask')}
-                </button>
-              )}
-            </div>
-          </div>
-        </header>
-
-        <div className="flex-1 overflow-auto px-6 py-4">
-          {workspaceScreen === 'projects' ? (
-            <ProjectsScreen />
-          ) : projectsQuery.isLoading && projectsQuery.data === undefined ? (
-            <p className="text-sm text-fg-secondary">{t('loading.generic')}</p>
-          ) : projectsQuery.isSuccess && activeProjects.length === 0 ? (
-            <div className="flex flex-col items-start gap-3 rounded-xl border border-dashed border-edge-subtle bg-surface-base/40 px-6 py-10">
-              <p className="text-sm text-fg-secondary">{t('projects.emptyTasks')}</p>
-              <button
-                type="button"
-                onClick={() => setWorkspaceScreen('projects')}
-                className="rounded-xl bg-accent px-4 py-2 text-sm font-medium text-white hover:bg-accent-hover"
-              >
-                {t('projects.goCreate')}
-              </button>
-            </div>
-          ) : activeProjects.length > 0 && !currentProjectId ? (
-            <p className="text-sm text-fg-secondary">{t('loading.generic')}</p>
-          ) : viewMode === 'board' ? (
-            <BoardView onOpenTask={(id) => selectTask(id)} />
-          ) : viewMode === 'list' ? (
-            <ListView onOpenTask={(id) => selectTask(id)} />
-          ) : (
-            <TaskGraphView onOpenTask={(id) => selectTask(id)} />
-          )}
+      </div>
+      <nav className="mt-4 flex min-h-0 flex-1 flex-col gap-1.5 overflow-y-auto overflow-x-visible">
+        <button
+          type="button"
+          onClick={() => setWorkspaceScreen('projects')}
+          className={`flex items-center gap-2 rounded-xl px-3 py-2 text-sm font-medium leading-6 transition-colors duration-150 ease-out focus:outline-none focus-visible:ring-2 focus-visible:ring-accent ${
+            workspaceScreen === 'projects'
+              ? 'bg-surface-active text-fg'
+              : 'text-fg-secondary hover:bg-surface-hover'
+          }`}
+        >
+          <FolderKanban className="h-5 w-5 text-fg-subtle" />
+          {t('nav.projects')}
+        </button>
+        <button
+          type="button"
+          onClick={() => {
+            setWorkspaceScreen('tasks');
+            setViewMode('board');
+          }}
+          className={`flex items-center gap-2 rounded-xl px-3 py-2 text-sm font-medium leading-6 transition-colors duration-150 ease-out focus:outline-none focus-visible:ring-2 focus-visible:ring-accent ${
+            workspaceScreen === 'tasks' && viewMode === 'board'
+              ? 'bg-surface-active text-fg'
+              : 'text-fg-secondary hover:bg-surface-hover'
+          }`}
+        >
+          <LayoutGrid className="h-5 w-5 text-fg-subtle" />
+          {t('nav.board')}
+        </button>
+        <button
+          type="button"
+          onClick={() => {
+            setWorkspaceScreen('tasks');
+            setViewMode('list');
+          }}
+          className={`flex items-center gap-2 rounded-xl px-3 py-2 text-sm font-medium leading-6 transition-colors duration-150 ease-out focus:outline-none focus-visible:ring-2 focus-visible:ring-accent ${
+            workspaceScreen === 'tasks' && viewMode === 'list'
+              ? 'bg-surface-active text-fg'
+              : 'text-fg-secondary hover:bg-surface-hover'
+          }`}
+        >
+          <List className="h-5 w-5 text-fg-subtle" />
+          {t('nav.list')}
+        </button>
+        <button
+          type="button"
+          onClick={() => {
+            setWorkspaceScreen('tasks');
+            setViewMode('graph');
+          }}
+          className={`flex items-center gap-2 rounded-xl px-3 py-2 text-sm font-medium leading-6 transition-colors duration-150 ease-out focus:outline-none focus-visible:ring-2 focus-visible:ring-accent ${
+            workspaceScreen === 'tasks' && viewMode === 'graph'
+              ? 'bg-surface-active text-fg'
+              : 'text-fg-secondary hover:bg-surface-hover'
+          }`}
+        >
+          <GitBranch className="h-5 w-5 text-fg-subtle" />
+          {t('nav.graph')}
+        </button>
+      </nav>
+      {profileMenu && (
+        <div className="relative shrink-0 border-t border-edge-subtle pt-3">
+          {profileMenu}
         </div>
-      </main>
+      )}
+    </aside>
+  );
 
+  const overlays = (
+    <>
       <CommandPalette />
       <ShortcutsHelp />
       <DialogHost />
@@ -468,7 +435,122 @@ function MainApp() {
           </div>
         </>
       )}
-    </div>
+    </>
+  );
+
+  const taskMain =
+    projectsQuery.isLoading && projectsQuery.data === undefined ? (
+      <p className="text-sm text-fg-secondary">{t('loading.generic')}</p>
+    ) : !currentProjectId ? (
+      <p className="text-sm text-fg-secondary">{t('loading.generic')}</p>
+    ) : viewMode === 'board' ? (
+      <BoardView onOpenTask={(id) => selectTask(id)} />
+    ) : viewMode === 'list' ? (
+      <ListView onOpenTask={(id) => selectTask(id)} />
+    ) : (
+      <TaskGraphView onOpenTask={(id) => selectTask(id)} />
+    );
+
+  return (
+    <>
+      <div className="flex min-h-screen">
+        {fixedSidebar}
+        <div className="relative z-0 flex min-h-screen min-w-0 flex-1 flex-col bg-surface-panel pl-60">
+          {workspaceScreen === 'projects' ? (
+            <main className="flex-1 overflow-auto px-4 pb-10 pt-6 sm:px-6">
+              <ProjectHomeGrid onOpenProject={openProject} />
+            </main>
+          ) : (
+            <>
+              <header className="shrink-0 border-b border-edge-subtle bg-surface-panel">
+                <div className="flex flex-wrap items-start justify-between gap-3 px-4 py-3 sm:px-6">
+                  <div className="min-w-0 flex-1">
+                    <ProjectHeaderBar />
+                  </div>
+                  {currentProjectId && (
+                    <ProjectHeaderRightRail
+                      projectId={currentProjectId}
+                      onOpenCommandPalette={() => setCommandOpen(true)}
+                      onOpenShortcuts={() => setShortcutsOpen(true)}
+                    />
+                  )}
+                </div>
+                <div className="flex flex-wrap items-center justify-between gap-3 border-t border-edge-subtle px-4 py-2 sm:px-6">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="text-xs font-medium uppercase tracking-wide text-fg-subtle">
+                      {t('projectWorkspace.viewLabel')}
+                    </span>
+                    <div className="flex rounded-xl border border-edge-subtle p-0.5">
+                      {(
+                        [
+                          ['board', LayoutGrid, t('nav.board')] as const,
+                          ['list', List, t('nav.list')] as const,
+                          ['graph', GitBranch, t('nav.graph')] as const,
+                        ]
+                      ).map(([mode, Icon, label]) => (
+                        <button
+                          key={mode}
+                          type="button"
+                          onClick={() => setViewMode(mode)}
+                          className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium ${
+                            viewMode === mode
+                              ? 'bg-surface-active text-fg'
+                              : 'text-fg-secondary hover:bg-surface-hover'
+                          }`}
+                        >
+                          <Icon className="h-3.5 w-3.5" />
+                          {label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    {(viewMode === 'board' || viewMode === 'list') && (
+                      <button
+                        type="button"
+                        onClick={() => setSelectionMode(!selectionMode)}
+                        className={`inline-flex items-center gap-2 rounded-xl border px-3 py-2 text-sm font-medium transition-colors duration-150 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent active:scale-95 ${
+                          selectionMode
+                            ? 'border-accent bg-accent/10 text-accent'
+                            : 'border-edge bg-surface-panel text-fg hover:bg-surface-hover'
+                        }`}
+                      >
+                        <CheckSquare className="h-4 w-4" />
+                        {selectionMode
+                          ? t('actions.selecting')
+                          : t('actions.select')}
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      disabled={!currentProjectId}
+                      title={
+                        !currentProjectId
+                          ? t('projects.needProject')
+                          : undefined
+                      }
+                      onClick={() => setCreateOpen(true)}
+                      className="inline-flex items-center gap-2 rounded-xl bg-accent px-3 py-2 text-sm font-medium text-white transition-colors duration-150 hover:bg-accent-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-accent enabled:active:scale-95 disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      <Plus className="h-4 w-4" />
+                      {t('actions.newTask')}
+                    </button>
+                    <p className="hidden text-xs text-fg-subtle xl:block">
+                      {t('app.headerHint')}
+                    </p>
+                  </div>
+                </div>
+              </header>
+
+              <div className="min-h-0 flex-1 overflow-auto p-4 sm:p-6">
+                {taskMain}
+              </div>
+            </>
+          )}
+        </div>
+      </div>
+      {overlays}
+    </>
   );
 }
 

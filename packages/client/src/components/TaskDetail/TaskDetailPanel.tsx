@@ -1,7 +1,7 @@
 import MDEditor from '@uiw/react-md-editor';
 import '@uiw/react-md-editor/markdown-editor.css';
 import { X } from 'lucide-react';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   useAddDependency,
@@ -17,10 +17,9 @@ import {
   useTaskDetail,
   useTaskList,
   useTaskMemory,
-  useWorkspaceActors,
+  useProjectWorkspaceMembers,
 } from '../../hooks/useTasks';
 import { useIsDark } from '../../hooks/useIsDark';
-import { actorsToWorkspaceMembers } from '../../lib/members';
 import { statusLabel } from '../../lib/taskOrdering';
 import type { TaskStatus } from '../../types';
 import { useDialogStore } from '../../store/dialogStore';
@@ -58,11 +57,7 @@ export function TaskDetailPanel({
   const { data: allLabels = [] } = useLabels();
   const createLabel = useCreateLabel();
   const isDark = useIsDark();
-  const { data: actors } = useWorkspaceActors();
-  const workspaceMembers = useMemo(
-    () => (actors ? actorsToWorkspaceMembers(actors) : []),
-    [actors],
-  );
+  const workspaceMembers = useProjectWorkspaceMembers();
 
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');

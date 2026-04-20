@@ -9,7 +9,6 @@ import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { ListTasksParams } from '../../api/client';
 import type { Task, TaskStatus } from '../../types';
-import { actorsToWorkspaceMembers } from '../../lib/members';
 import { STATUS_ORDER } from '../../lib/taskOrdering';
 import { TaskFilterBar } from '../Filters/TaskFilterBar';
 import {
@@ -18,7 +17,7 @@ import {
   useSetTaskStatus,
   useTaskList,
   useUpdateTaskTitle,
-  useWorkspaceActors,
+  useProjectWorkspaceMembers,
 } from '../../hooks/useTasks';
 import { useDialogStore } from '../../store/dialogStore';
 import { useUiStore } from '../../store/uiStore';
@@ -51,11 +50,7 @@ export function BoardView({ onOpenTask }: { onOpenTask: (id: string) => void }) 
   const rename = useUpdateTaskTitle();
   const quickPatch = useQuickPatchTask();
   const delTask = useDeleteTask();
-  const { data: actors } = useWorkspaceActors();
-  const workspaceMembers = useMemo(
-    () => (actors ? actorsToWorkspaceMembers(actors) : []),
-    [actors],
-  );
+  const workspaceMembers = useProjectWorkspaceMembers();
 
   const [menu, setMenu] = useState<{
     task: Task;

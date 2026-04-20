@@ -39,11 +39,56 @@
     "emptyTasks": "Create a project to start tracking tasks.",
     "goCreate": "Open projects",
     "needProject": "Select or create a project first",
+    "homeTitle": "Your projects",
+    "homeSubtitle": "Pick a project to manage tasks and members, or create a new one.",
+    "backToProjects": "All projects",
+    "createCard": "Create project",
+    "cardMenu": "Project actions",
+    "agentNoProjects": "You have not been added to any project yet.",
+    "pickProject": "Select a project",
+    "editModalTitle": "Project details",
+    "fieldTitle": "Name",
+    "fieldDescription": "Description",
+    "fieldIcon": "Icon (emoji)",
+    "fieldIconPlaceholder": "e.g. 📁",
+    "fieldStatus": "Status",
+    "fieldPriority": "Priority",
+    "save": "Save changes",
+    "starProject": "Favorite project",
+    "unstarProject": "Remove favorite",
+    "editInfoAria": "Edit project details",
     "role": {
       "owner": "Owner",
       "admin": "Admin",
       "member": "Member"
     }
+  },
+  "projectWorkspace": {
+    "tab": {
+      "tasks": "Tasks",
+      "stats": "Statistics",
+      "milestones": "Milestones",
+      "overview": "Overview",
+      "files": "Files",
+      "plans": "Plans"
+    },
+    "placeholder": "This area is coming soon.",
+    "viewLabel": "View"
+  },
+  "projectHeader": {
+    "invite": "Invite",
+    "aiAssistant": "AI assistant",
+    "automation": "Automation",
+    "customize": "Customize",
+    "appMenu": "Menu",
+    "help": "Help & shortcuts",
+    "comingSoon": "This feature is not available yet."
+  },
+  "members": {
+    "sidebarTitle": "All members",
+    "sidebarHint": "People and agents with access to this project.",
+    "searchPlaceholder": "Search members…",
+    "inviteAdd": "Add to project"
   },
   "projectStatus": {
     "planned": "Planned",

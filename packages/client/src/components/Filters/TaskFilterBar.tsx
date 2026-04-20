@@ -1,8 +1,6 @@
 import clsx from 'clsx';
-import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useLabels, useWorkspaceActors } from '../../hooks/useTasks';
-import { actorsToWorkspaceMembers } from '../../lib/members';
+import { useLabels, useProjectWorkspaceMembers } from '../../hooks/useTasks';
 import { priorityLabel } from '../../lib/taskOrdering';
 import type { TaskPriority } from '../../types';
 import { useUiStore } from '../../store/uiStore';
@@ -21,11 +19,7 @@ export function TaskFilterBar({ className }: { className?: string }) {
   const setTaskFilters = useUiStore((s) => s.setTaskFilters);
   const resetTaskFilters = useUiStore((s) => s.resetTaskFilters);
   const { data: labels = [] } = useLabels();
-  const { data: actors } = useWorkspaceActors();
-  const workspaceMembers = useMemo(
-    () => (actors ? actorsToWorkspaceMembers(actors) : []),
-    [actors],
-  );
+  const workspaceMembers = useProjectWorkspaceMembers();
 
   const active =
     filters.priority !== '' ||

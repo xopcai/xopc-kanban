@@ -39,11 +39,56 @@
     "emptyTasks": "请先创建项目再管理任务。",
     "goCreate": "前往项目",
     "needProject": "请先选择或创建项目",
+    "homeTitle": "我的项目",
+    "homeSubtitle": "选择项目以管理任务与成员，或新建项目。",
+    "backToProjects": "全部项目",
+    "createCard": "创建项目",
+    "cardMenu": "项目操作",
+    "agentNoProjects": "你尚未被加入任何项目。",
+    "pickProject": "选择项目",
+    "editModalTitle": "项目信息",
+    "fieldTitle": "名称",
+    "fieldDescription": "描述",
+    "fieldIcon": "图标（Emoji）",
+    "fieldIconPlaceholder": "例如 📁",
+    "fieldStatus": "状态",
+    "fieldPriority": "优先级",
+    "save": "保存",
+    "starProject": "收藏项目",
+    "unstarProject": "取消收藏",
+    "editInfoAria": "编辑项目信息",
     "role": {
       "owner": "负责人",
       "admin": "管理员",
       "member": "成员"
     }
+  },
+  "projectWorkspace": {
+    "tab": {
+      "tasks": "任务",
+      "stats": "统计",
+      "milestones": "里程碑",
+      "overview": "概览",
+      "files": "文件",
+      "plans": "计划管理"
+    },
+    "placeholder": "该功能即将推出。",
+    "viewLabel": "视图"
+  },
+  "projectHeader": {
+    "invite": "邀请",
+    "aiAssistant": "AI 助理",
+    "automation": "自动化",
+    "customize": "自定义",
+    "appMenu": "菜单",
+    "help": "帮助与快捷键",
+    "comingSoon": "该功能即将推出。"
+  },
+  "members": {
+    "sidebarTitle": "全部成员",
+    "sidebarHint": "可访问本项目的成员与 Agent。",
+    "searchPlaceholder": "搜索成员…",
+    "inviteAdd": "添加到项目"
   },
   "projectStatus": {
     "planned": "计划中",

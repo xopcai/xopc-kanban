@@ -133,5 +133,5 @@ export interface ProjectMember {
   createdAt: string;
 }
 
-/** Tasks vs project settings; both live in the main shell without react-router. */
+/** Home grid vs inside a project workspace. */
 export type WorkspaceScreen = 'tasks' | 'projects';

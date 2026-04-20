@@ -4,8 +4,7 @@ import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { ListTasksParams } from '../../api/client';
 import { TaskFilterBar } from '../Filters/TaskFilterBar';
-import { useTaskList, useWorkspaceActors } from '../../hooks/useTasks';
-import { actorsToWorkspaceMembers } from '../../lib/members';
+import { useProjectWorkspaceMembers, useTaskList } from '../../hooks/useTasks';
 import {
   comparePriority,
   priorityLabel,
@@ -114,11 +113,7 @@ export function ListView({ onOpenTask }: { onOpenTask: (id: string) => void }) {
     true,
     listFilters,
   );
-  const { data: actors } = useWorkspaceActors();
-  const workspaceMembers = useMemo(
-    () => (actors ? actorsToWorkspaceMembers(actors) : []),
-    [actors],
-  );
+  const workspaceMembers = useProjectWorkspaceMembers();
 
   const [groupBy, setGroupBy] = useState<GroupBy>('status');
   const [sortKey, setSortKey] = useState<SortKey>('updated_desc');
