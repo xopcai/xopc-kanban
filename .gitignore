@@ -1,0 +1,9 @@
+node_modules
+dist
+.turbo
+*.local
+.DS_Store
+.env
+.env.*
+packages/server/data/*.db
+packages/server/data/*.db-*
