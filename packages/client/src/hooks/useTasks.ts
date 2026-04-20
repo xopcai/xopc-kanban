@@ -3,22 +3,65 @@ import {
   useQuery,
   useQueryClient,
 } from '@tanstack/react-query';
+import type { ListTasksParams } from '../api/client';
 import { api } from '../api/client';
 import type { DependencyType, TaskStatus } from '../types';
 
 export const taskKeys = {
   all: ['tasks'] as const,
-  list: (rootOnly?: boolean) => [...taskKeys.all, 'list', rootOnly] as const,
+  list: (params: ListTasksParams | undefined) =>
+    [
+      ...taskKeys.all,
+      'list',
+      params?.rootOnly ?? false,
+      params?.status ?? '',
+      params?.priority ?? '',
+      params?.assigneeId ?? '',
+      params?.labelId ?? '',
+    ] as const,
+  labels: ['labels'] as const,
   detail: (id: string) => [...taskKeys.all, 'detail', id] as const,
   memory: (id: string) => [...taskKeys.all, 'memory', id] as const,
   graph: (id: string) => [...taskKeys.all, 'graph', id] as const,
   deps: (id: string) => [...taskKeys.all, 'deps', id] as const,
 };
 
-export function useTaskList(rootOnly = true) {
+export function useTaskList(
+  rootOnly = true,
+  filters: Omit<ListTasksParams, 'rootOnly'> = {},
+) {
+  const params: ListTasksParams = { rootOnly, ...filters };
   return useQuery({
-    queryKey: taskKeys.list(rootOnly),
-    queryFn: () => api.listTasks({ rootOnly }),
+    queryKey: taskKeys.list(params),
+    queryFn: () => api.listTasks(params),
+  });
+}
+
+export function useLabels() {
+  return useQuery({
+    queryKey: taskKeys.labels,
+    queryFn: () => api.listLabels(),
+  });
+}
+
+export function useCreateLabel() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: api.createLabel,
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: taskKeys.labels });
+      void qc.invalidateQueries({ queryKey: taskKeys.all });
+    },
+  });
+}
+
+export function useBulkTasks() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: api.bulkTasks,
+    onSettled: () => {
+      void qc.invalidateQueries({ queryKey: taskKeys.all });
+    },
   });
 }
 
@@ -80,6 +123,20 @@ export function useUpdateTaskTitle() {
   return useMutation({
     mutationFn: ({ id, title }: { id: string; title: string }) =>
       api.patchTask(id, { title }),
+    onSettled: () => {
+      void qc.invalidateQueries({ queryKey: taskKeys.all });
+    },
+  });
+}
+
+export function useQuickPatchTask() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      id,
+      ...body
+    }: { id: string } & Parameters<typeof api.patchTask>[1]) =>
+      api.patchTask(id, body),
     onSettled: () => {
       void qc.invalidateQueries({ queryKey: taskKeys.all });
     },

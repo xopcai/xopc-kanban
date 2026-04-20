@@ -1,5 +1,6 @@
 import { useDroppable } from '@dnd-kit/core';
 import clsx from 'clsx';
+import type { MouseEvent } from 'react';
 import type { Task, TaskStatus } from '../../types';
 import { statusLabel } from '../../lib/taskOrdering';
 import { TaskCard } from './TaskCard';
@@ -9,11 +10,19 @@ export function BoardColumn({
   tasks,
   onOpenTask,
   onRenameTask,
+  selectionMode,
+  selectedTaskIds,
+  onToggleSelect,
+  onContextMenu,
 }: {
   status: TaskStatus;
   tasks: Task[];
   onOpenTask: (id: string) => void;
   onRenameTask: (id: string, title: string) => void;
+  selectionMode: boolean;
+  selectedTaskIds: string[];
+  onToggleSelect: (id: string) => void;
+  onContextMenu: (task: Task, e: MouseEvent) => void;
 }) {
   const { isOver, setNodeRef } = useDroppable({ id: status });
 
@@ -38,6 +47,10 @@ export function BoardColumn({
             task={t}
             onOpen={onOpenTask}
             onRename={onRenameTask}
+            selectionMode={selectionMode}
+            selected={selectedTaskIds.includes(t.id)}
+            onToggleSelect={onToggleSelect}
+            onContextMenu={onContextMenu}
           />
         ))}
       </div>

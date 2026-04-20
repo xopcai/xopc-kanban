@@ -3,7 +3,7 @@ import { Hono } from 'hono';
 import { z } from 'zod';
 import { memoryService } from '../services/MemoryService.js';
 import { taskService } from '../services/TaskService.js';
-import type { TaskStatus } from '../types/index.js';
+import type { TaskPriority, TaskStatus } from '../types/index.js';
 
 const dependencyBody = z.object({
   dependsOnId: z.string().min(1),
@@ -79,15 +79,30 @@ const memoryBody = z.object({
   parentId: z.string().nullable().optional(),
 });
 
+const batchBody = z.object({
+  ids: z.array(z.string()).min(1),
+  action: z.enum(['delete', 'set_status']),
+  status: taskStatusZ.optional(),
+});
+
 export const tasksRouter = new Hono()
   .get('/', async (c) => {
     const status = c.req.query('status') as TaskStatus | undefined;
+    const priority = c.req.query('priority') as TaskPriority | undefined;
+    const assigneeRaw = c.req.query('assigneeId');
+    let assigneeId: string | null | undefined = undefined;
+    if (assigneeRaw === '__none__') assigneeId = null;
+    else if (assigneeRaw) assigneeId = assigneeRaw;
+    const labelId = c.req.query('labelId') || undefined;
     const projectId = c.req.query('projectId');
     const parentId = c.req.query('parentId');
     const rootOnly = c.req.query('rootOnly') === '1' || c.req.query('rootOnly') === 'true';
 
     const tasks = await taskService.list({
       status,
+      priority,
+      assigneeId,
+      labelId,
       projectId: projectId === undefined ? undefined : projectId || null,
       parentId:
         parentId === undefined ? undefined : parentId === '' ? null : parentId,
@@ -99,6 +114,21 @@ export const tasksRouter = new Hono()
     const body = c.req.valid('json');
     const task = await taskService.create(body);
     return c.json(task, 201);
+  })
+  .post('/batch', zValidator('json', batchBody), async (c) => {
+    const body = c.req.valid('json');
+    if (body.action === 'delete') {
+      await taskService.bulkDelete(body.ids);
+      return c.json({ ok: true });
+    }
+    if (!body.status) return c.json({ error: 'status required' }, 400);
+    try {
+      await taskService.bulkSetStatus(body.ids, body.status);
+      return c.json({ ok: true });
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : 'Bad request';
+      return c.json({ error: msg }, 400);
+    }
   })
   .get('/:id/graph', async (c) => {
     const graph = await taskService.getGraph(c.req.param('id'));

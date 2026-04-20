@@ -5,22 +5,53 @@ import {
   useSensor,
   useSensors,
 } from '@dnd-kit/core';
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
+import type { ListTasksParams } from '../../api/client';
 import type { Task, TaskStatus } from '../../types';
 import { STATUS_ORDER } from '../../lib/taskOrdering';
+import { TaskFilterBar } from '../Filters/TaskFilterBar';
 import {
+  useDeleteTask,
+  useQuickPatchTask,
   useSetTaskStatus,
   useTaskList,
   useUpdateTaskTitle,
 } from '../../hooks/useTasks';
+import { useUiStore } from '../../store/uiStore';
 import { BoardColumn } from './BoardColumn';
+import { TaskContextMenu } from './TaskContextMenu';
 
 const COLUMN_ORDER = STATUS_ORDER.filter((s) => s !== 'cancelled');
 
 export function BoardView({ onOpenTask }: { onOpenTask: (id: string) => void }) {
-  const { data: tasks = [], isLoading, isError, error } = useTaskList(true);
+  const taskFilters = useUiStore((s) => s.taskFilters);
+  const selectionMode = useUiStore((s) => s.selectionMode);
+  const selectedTaskIds = useUiStore((s) => s.selectedTaskIds);
+  const toggleTaskSelected = useUiStore((s) => s.toggleTaskSelected);
+
+  const listFilters = useMemo((): Omit<ListTasksParams, 'rootOnly'> => {
+    const f: Omit<ListTasksParams, 'rootOnly'> = {};
+    if (taskFilters.priority) f.priority = taskFilters.priority;
+    if (taskFilters.assigneeId === '__none__') f.assigneeId = '__none__';
+    else if (taskFilters.assigneeId) f.assigneeId = taskFilters.assigneeId;
+    if (taskFilters.labelId) f.labelId = taskFilters.labelId;
+    return f;
+  }, [taskFilters]);
+
+  const { data: tasks = [], isLoading, isError, error } = useTaskList(
+    true,
+    listFilters,
+  );
   const setStatus = useSetTaskStatus();
   const rename = useUpdateTaskTitle();
+  const quickPatch = useQuickPatchTask();
+  const delTask = useDeleteTask();
+
+  const [menu, setMenu] = useState<{
+    task: Task;
+    x: number;
+    y: number;
+  } | null>(null);
 
   const grouped = useMemo(() => {
     const map = new Map<TaskStatus, Task[]>();
@@ -68,18 +99,58 @@ export function BoardView({ onOpenTask }: { onOpenTask: (id: string) => void }) 
   }
 
   return (
-    <DndContext sensors={sensors} onDragEnd={onDragEnd}>
-      <div className="flex gap-4 overflow-x-auto pb-4">
-        {COLUMN_ORDER.map((status) => (
-          <BoardColumn
-            key={status}
-            status={status}
-            tasks={grouped.get(status) ?? []}
-            onOpenTask={onOpenTask}
-            onRenameTask={(id, title) => rename.mutate({ id, title })}
-          />
-        ))}
-      </div>
-    </DndContext>
+    <div className="flex flex-col gap-3">
+      <TaskFilterBar />
+      <DndContext sensors={sensors} onDragEnd={onDragEnd}>
+        <div className="flex gap-4 overflow-x-auto pb-4">
+          {COLUMN_ORDER.map((status) => (
+            <BoardColumn
+              key={status}
+              status={status}
+              tasks={grouped.get(status) ?? []}
+              onOpenTask={onOpenTask}
+              onRenameTask={(id, title) => rename.mutate({ id, title })}
+              selectionMode={selectionMode}
+              selectedTaskIds={selectedTaskIds}
+              onToggleSelect={toggleTaskSelected}
+              onContextMenu={(task, e) =>
+                setMenu({ task, x: e.clientX, y: e.clientY })
+              }
+            />
+          ))}
+        </div>
+      </DndContext>
+      {menu && (
+        <TaskContextMenu
+          task={menu.task}
+          x={menu.x}
+          y={menu.y}
+          onClose={() => setMenu(null)}
+          onOpenDetail={() => onOpenTask(menu.task.id)}
+          onSetStatus={(s) =>
+            setStatus.mutate({ id: menu.task.id, status: s })
+          }
+          onAssign={(memberId, typ) => {
+            if (memberId === null) {
+              quickPatch.mutate({
+                id: menu.task.id,
+                assigneeType: null,
+                assigneeId: null,
+              });
+            } else {
+              quickPatch.mutate({
+                id: menu.task.id,
+                assigneeType: typ,
+                assigneeId: memberId,
+              });
+            }
+          }}
+          onDelete={() => {
+            if (!confirm(`Delete ${menu.task.identifier}?`)) return;
+            delTask.mutate(menu.task.id);
+          }}
+        />
+      )}
+    </div>
   );
 }

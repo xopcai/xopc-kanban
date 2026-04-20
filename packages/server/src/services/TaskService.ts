@@ -120,12 +120,33 @@ export class TaskService {
 
   async list(params: {
     status?: TaskStatus;
+    priority?: TaskPriority;
+    /** `null` = unassigned only */
+    assigneeId?: string | null;
+    labelId?: string;
     projectId?: string | null;
     parentId?: string | null;
     rootOnly?: boolean;
   }): Promise<Task[]> {
     const conditions = [];
     if (params.status) conditions.push(eq(t.task.status, params.status));
+    if (params.priority) conditions.push(eq(t.task.priority, params.priority));
+    if (params.assigneeId === null) {
+      conditions.push(isNull(t.task.assigneeId));
+    } else if (params.assigneeId !== undefined) {
+      conditions.push(eq(t.task.assigneeId, params.assigneeId));
+    }
+    if (params.labelId) {
+      const labeled = await db
+        .select({ taskId: t.taskLabel.taskId })
+        .from(t.taskLabel)
+        .where(eq(t.taskLabel.labelId, params.labelId));
+      const taskIds = [...new Set(labeled.map((r) => r.taskId))];
+      if (taskIds.length === 0) {
+        return [];
+      }
+      conditions.push(inArray(t.task.id, taskIds));
+    }
     if (params.projectId !== undefined) {
       if (params.projectId === null) conditions.push(isNull(t.task.projectId));
       else conditions.push(eq(t.task.projectId, params.projectId));
@@ -601,6 +622,44 @@ export class TaskService {
     }));
 
     return { root, nodes, edges };
+  }
+
+  async bulkDelete(ids: string[]): Promise<void> {
+    const unique = [...new Set(ids)];
+    const ts = nowIso();
+    db.transaction((tx) => {
+      for (const id of unique) {
+        tx.delete(t.task).where(eq(t.task.id, id));
+      }
+    });
+    for (const id of unique) {
+      await eventBus.publish({
+        type: 'task.deleted',
+        taskId: id,
+        payload: { id },
+        timestamp: ts,
+      });
+    }
+  }
+
+  async bulkSetStatus(ids: string[], nextStatus: TaskStatus): Promise<void> {
+    const unique = [...new Set(ids)];
+    const ts = nowIso();
+    for (const id of unique) {
+      const existing = await db.select().from(t.task).where(eq(t.task.id, id)).get();
+      if (!existing) continue;
+      this.assertTransition(existing.status, nextStatus);
+      await db
+        .update(t.task)
+        .set({ status: nextStatus, updatedAt: ts })
+        .where(eq(t.task.id, id));
+      await eventBus.publish({
+        type: 'task.status_changed',
+        taskId: id,
+        payload: { status: nextStatus, bulk: true },
+        timestamp: ts,
+      });
+    }
   }
 }
 

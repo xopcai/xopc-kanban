@@ -1,5 +1,6 @@
 import type {
   DependencyType,
+  Label,
   Task,
   TaskComment,
   TaskDependencyEdge,
@@ -18,12 +19,55 @@ async function parseJson<T>(res: Response): Promise<T> {
   return res.json() as Promise<T>;
 }
 
+export type ListTasksParams = {
+  rootOnly?: boolean;
+  status?: TaskStatus;
+  priority?: TaskPriority;
+  assigneeId?: string | '__none__';
+  labelId?: string;
+};
+
+function buildTaskQuery(params?: ListTasksParams): string {
+  const q = new URLSearchParams();
+  if (params?.rootOnly === true) q.set('rootOnly', '1');
+  if (params?.status) q.set('status', params.status);
+  if (params?.priority) q.set('priority', params.priority);
+  if (params?.assigneeId === '__none__') q.set('assigneeId', '__none__');
+  else if (params?.assigneeId) q.set('assigneeId', params.assigneeId);
+  if (params?.labelId) q.set('labelId', params.labelId);
+  const s = q.toString();
+  return s ? `?${s}` : '';
+}
+
 export const api = {
-  listTasks(params?: { rootOnly?: boolean }) {
-    const q = new URLSearchParams();
-    if (params?.rootOnly === true) q.set('rootOnly', '1');
-    const suffix = q.toString() ? `?${q}` : '';
-    return fetch(`/api/tasks${suffix}`).then((r) => parseJson<Task[]>(r));
+  listTasks(params?: ListTasksParams) {
+    return fetch(`/api/tasks${buildTaskQuery(params)}`).then((r) =>
+      parseJson<Task[]>(r),
+    );
+  },
+
+  bulkTasks(body: {
+    ids: string[];
+    action: 'delete' | 'set_status';
+    status?: TaskStatus;
+  }) {
+    return fetch('/api/tasks/batch', {
+      method: 'POST',
+      headers: jsonHeaders,
+      body: JSON.stringify(body),
+    }).then((r) => parseJson<{ ok: boolean }>(r));
+  },
+
+  listLabels() {
+    return fetch('/api/labels').then((r) => parseJson<Label[]>(r));
+  },
+
+  createLabel(body: { name: string; color: string }) {
+    return fetch('/api/labels', {
+      method: 'POST',
+      headers: jsonHeaders,
+      body: JSON.stringify(body),
+    }).then((r) => parseJson<Label>(r));
   },
 
   getTaskGraph(taskId: string) {
@@ -68,6 +112,7 @@ export const api = {
     priority?: TaskPriority;
     intent?: string;
     parentId?: string | null;
+    labelIds?: string[];
   }) {
     return fetch('/api/tasks', {
       method: 'POST',
@@ -95,6 +140,9 @@ export const api = {
       priority: TaskPriority;
       intent: string;
       position: number;
+      assigneeType: 'member' | 'agent' | null;
+      assigneeId: string | null;
+      labelIds: string[];
     }>,
   ) {
     return fetch(`/api/tasks/${id}`, {

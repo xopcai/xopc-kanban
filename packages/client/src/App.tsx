@@ -1,8 +1,19 @@
-import { GitBranch, LayoutGrid, List, Monitor, Moon, Plus, Sun } from 'lucide-react';
+import {
+  CheckSquare,
+  GitBranch,
+  LayoutGrid,
+  List,
+  Monitor,
+  Moon,
+  Plus,
+  Sun,
+} from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { BoardView } from './components/Board/BoardView';
+import { BulkActionsBar } from './components/Board/BulkActionsBar';
 import { CommandPalette } from './components/CommandPalette/CommandPalette';
 import { ListView } from './components/List/ListView';
+import { ShortcutsHelp } from './components/Shortcuts/ShortcutsHelp';
 import { TaskGraphView } from './components/TaskGraph/TaskGraphView';
 import { TaskDetailPanel } from './components/TaskDetail/TaskDetailPanel';
 import { useCreateTask } from './hooks/useTasks';
@@ -31,6 +42,27 @@ function useGlobalShortcuts() {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       const st = useUiStore.getState();
+
+      if (e.key === 'Escape') {
+        if (st.shortcutsOpen) {
+          e.preventDefault();
+          st.setShortcutsOpen(false);
+          return;
+        }
+        if (st.commandOpen) return;
+        if (st.createOpen) {
+          e.preventDefault();
+          st.setCreateOpen(false);
+          return;
+        }
+        if (st.selectedTaskId) return;
+        if (st.selectedTaskIds.length > 0) {
+          e.preventDefault();
+          st.clearSelection();
+          return;
+        }
+      }
+
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
         e.preventDefault();
         st.setCommandOpen(!st.commandOpen);
@@ -47,6 +79,24 @@ function useGlobalShortcuts() {
         target.isContentEditable;
 
       if (!inField) {
+        if (e.key === '?' || (e.shiftKey && e.key === '/')) {
+          e.preventDefault();
+          st.setShortcutsOpen(true);
+          return;
+        }
+        if (
+          (e.key === 'b' || e.key === 'B') &&
+          !e.metaKey &&
+          !e.ctrlKey &&
+          !e.altKey
+        ) {
+          const vm = st.viewMode;
+          if (vm === 'board' || vm === 'list') {
+            e.preventDefault();
+            st.setSelectionMode(!st.selectionMode);
+          }
+          return;
+        }
         if ((e.key === 'c' || e.key === 'C') && !e.metaKey && !e.ctrlKey && !e.altKey) {
           st.setCreateOpen(true);
           return;
@@ -89,6 +139,8 @@ export default function App() {
   const setCreateOpen = useUiStore((s) => s.setCreateOpen);
   const themeMode = useUiStore((s) => s.themeMode);
   const setThemeMode = useUiStore((s) => s.setThemeMode);
+  const selectionMode = useUiStore((s) => s.selectionMode);
+  const setSelectionMode = useUiStore((s) => s.setSelectionMode);
 
   const create = useCreateTask();
   const [newTitle, setNewTitle] = useState('');
@@ -170,18 +222,36 @@ export default function App() {
               command palette ·{' '}
               <kbd className="rounded border border-edge px-1">C</kbd> new ·{' '}
               <kbd className="rounded border border-edge px-1">1</kbd>–
-              <kbd className="rounded border border-edge px-1">3</kbd> views ·
+              <kbd className="rounded border border-edge px-1">3</kbd> views ·{' '}
+              <kbd className="rounded border border-edge px-1">B</kbd> select ·{' '}
+              <kbd className="rounded border border-edge px-1">?</kbd> help ·
               double-click card title to rename
             </p>
           </div>
-          <button
-            type="button"
-            onClick={() => setCreateOpen(true)}
-            className="inline-flex items-center gap-2 rounded-xl bg-accent px-4 py-2 text-sm font-medium text-white transition-colors duration-150 hover:bg-accent-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-accent active:scale-95"
-          >
-            <Plus className="h-4 w-4" />
-            New task
-          </button>
+          <div className="flex flex-wrap items-center gap-2">
+            {(viewMode === 'board' || viewMode === 'list') && (
+              <button
+                type="button"
+                onClick={() => setSelectionMode(!selectionMode)}
+                className={`inline-flex items-center gap-2 rounded-xl border px-4 py-2 text-sm font-medium transition-colors duration-150 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent active:scale-95 ${
+                  selectionMode
+                    ? 'border-accent bg-accent/10 text-accent'
+                    : 'border-edge bg-surface-panel text-fg hover:bg-surface-hover'
+                }`}
+              >
+                <CheckSquare className="h-4 w-4" />
+                {selectionMode ? 'Selecting' : 'Select'}
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={() => setCreateOpen(true)}
+              className="inline-flex items-center gap-2 rounded-xl bg-accent px-4 py-2 text-sm font-medium text-white transition-colors duration-150 hover:bg-accent-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-accent active:scale-95"
+            >
+              <Plus className="h-4 w-4" />
+              New task
+            </button>
+          </div>
         </header>
 
         <div className="flex-1 overflow-auto px-6 py-4">
@@ -196,6 +266,8 @@ export default function App() {
       </main>
 
       <CommandPalette />
+      <ShortcutsHelp />
+      <BulkActionsBar />
 
       {createOpen && (
         <>

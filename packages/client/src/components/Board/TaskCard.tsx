@@ -1,5 +1,6 @@
 import { useDraggable } from '@dnd-kit/core';
 import clsx from 'clsx';
+import type { MouseEvent } from 'react';
 import { useEffect, useRef, useState } from 'react';
 import type { Task } from '../../types';
 
@@ -14,10 +15,18 @@ export function TaskCard({
   task,
   onOpen,
   onRename,
+  selectionMode,
+  selected,
+  onToggleSelect,
+  onContextMenu,
 }: {
   task: Task;
   onOpen: (id: string) => void;
   onRename: (id: string, title: string) => void;
+  selectionMode: boolean;
+  selected: boolean;
+  onToggleSelect: (id: string) => void;
+  onContextMenu: (task: Task, e: MouseEvent) => void;
 }) {
   const { attributes, listeners, setNodeRef, transform, isDragging } =
     useDraggable({
@@ -51,91 +60,134 @@ export function TaskCard({
     <div
       ref={setNodeRef}
       style={style}
-      {...listeners}
-      {...attributes}
-      role="button"
-      tabIndex={0}
-      onKeyDown={(e) => {
-        if (e.key === 'Enter' || e.key === ' ') {
-          e.preventDefault();
-          onOpen(task.id);
-        }
-      }}
-      onClick={() => {
-        if (editing) return;
-        if (openTimer.current) clearTimeout(openTimer.current);
-        openTimer.current = setTimeout(() => onOpen(task.id), 220);
-      }}
-      onDoubleClick={(e) => {
+      role="presentation"
+      onContextMenu={(e) => {
         e.preventDefault();
-        e.stopPropagation();
-        if (openTimer.current) {
-          clearTimeout(openTimer.current);
-          openTimer.current = null;
-        }
-        setEditing(true);
+        onContextMenu(task, e);
       }}
       className={clsx(
-        'relative w-full cursor-grab rounded-xl border border-edge-subtle bg-surface-panel px-3 py-3 text-left active:cursor-grabbing',
+        'relative flex gap-2 rounded-xl border border-edge-subtle bg-surface-panel px-2 py-3',
         'transition-colors duration-150 ease-out hover:bg-surface-hover',
-        'focus:outline-none focus-visible:ring-2 focus-visible:ring-accent',
-        'active:scale-95',
+        selected && 'ring-2 ring-accent ring-offset-2 ring-offset-surface-base',
       )}
     >
-      {task.priority !== 'none' && (
-        <span
-          className={clsx(
-            'absolute left-0 top-3 bottom-3 w-0.5 rounded-full',
-            priorityBar[task.priority] ?? 'bg-edge-subtle',
-          )}
-          aria-hidden
+      {selectionMode && (
+        <input
+          type="checkbox"
+          checked={selected}
+          onChange={() => onToggleSelect(task.id)}
+          onPointerDown={(e) => e.stopPropagation()}
+          onClick={(e) => e.stopPropagation()}
+          className="mt-1.5 h-4 w-4 shrink-0 rounded border-edge text-accent focus:ring-accent"
+          aria-label={`Select ${task.identifier}`}
         />
       )}
-      <div className="flex items-start gap-2 pl-1">
-        <span
+      <div
+        className="min-w-0 flex-1 cursor-grab text-left active:cursor-grabbing"
+        {...listeners}
+        {...attributes}
+        role="button"
+        tabIndex={0}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            onOpen(task.id);
+          }
+        }}
+        onClick={() => {
+          if (editing || selectionMode) return;
+          if (openTimer.current) clearTimeout(openTimer.current);
+          openTimer.current = setTimeout(() => onOpen(task.id), 220);
+        }}
+        onDoubleClick={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          if (selectionMode) return;
+          if (openTimer.current) {
+            clearTimeout(openTimer.current);
+            openTimer.current = null;
+          }
+          setEditing(true);
+        }}
+      >
+        {task.priority !== 'none' && (
+          <span
+            className={clsx(
+              'absolute left-2 top-3 bottom-3 w-0.5 rounded-full',
+              selectionMode ? 'left-8' : 'left-2',
+              priorityBar[task.priority] ?? 'bg-edge-subtle',
+            )}
+            aria-hidden
+          />
+        )}
+        <div
           className={clsx(
-            'mt-1 h-2 w-2 shrink-0 rounded-full',
-            task.status === 'backlog' && 'bg-status-backlog',
-            task.status === 'todo' && 'bg-status-todo',
-            task.status === 'in_progress' && 'bg-status-in_progress',
-            task.status === 'in_review' && 'bg-status-in_review',
-            task.status === 'blocked' && 'bg-status-blocked',
-            task.status === 'done' && 'bg-status-done',
-            task.status === 'cancelled' && 'bg-status-cancelled',
+            'flex items-start gap-2',
+            task.priority !== 'none' && 'pl-1.5',
+            selectionMode && task.priority !== 'none' && 'pl-2',
           )}
-          title={task.status}
-        />
-        <div className="min-w-0 flex-1">
-          <p className="text-xs leading-5 text-fg-subtle">{task.identifier}</p>
-          {editing ? (
-            <input
-              autoFocus
-              className="mt-0.5 w-full rounded-lg border border-edge bg-surface-panel px-2 py-1 text-sm font-medium leading-6 text-fg focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
-              value={draft}
-              onChange={(e) => setDraft(e.target.value)}
-              onClick={(e) => e.stopPropagation()}
-              onPointerDown={(e) => e.stopPropagation()}
-              onKeyDown={(e) => {
-                e.stopPropagation();
-                if (e.key === 'Escape') {
-                  setDraft(task.title);
-                  setEditing(false);
-                }
-                if (e.key === 'Enter') {
+        >
+          <span
+            className={clsx(
+              'mt-1 h-2 w-2 shrink-0 rounded-full',
+              task.status === 'backlog' && 'bg-status-backlog',
+              task.status === 'todo' && 'bg-status-todo',
+              task.status === 'in_progress' && 'bg-status-in_progress',
+              task.status === 'in_review' && 'bg-status-in_review',
+              task.status === 'blocked' && 'bg-status-blocked',
+              task.status === 'done' && 'bg-status-done',
+              task.status === 'cancelled' && 'bg-status-cancelled',
+            )}
+            title={task.status}
+          />
+          <div className="min-w-0 flex-1">
+            <p className="text-xs leading-5 text-fg-subtle">{task.identifier}</p>
+            {editing ? (
+              <input
+                autoFocus
+                className="mt-0.5 w-full rounded-lg border border-edge bg-surface-panel px-2 py-1 text-sm font-medium leading-6 text-fg focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+                value={draft}
+                onChange={(e) => setDraft(e.target.value)}
+                onClick={(e) => e.stopPropagation()}
+                onPointerDown={(e) => e.stopPropagation()}
+                onKeyDown={(e) => {
+                  e.stopPropagation();
+                  if (e.key === 'Escape') {
+                    setDraft(task.title);
+                    setEditing(false);
+                  }
+                  if (e.key === 'Enter') {
+                    const t = draft.trim();
+                    if (t && t !== task.title) onRename(task.id, t);
+                    setEditing(false);
+                  }
+                }}
+                onBlur={() => {
                   const t = draft.trim();
                   if (t && t !== task.title) onRename(task.id, t);
                   setEditing(false);
-                }
-              }}
-              onBlur={() => {
-                const t = draft.trim();
-                if (t && t !== task.title) onRename(task.id, t);
-                setEditing(false);
-              }}
-            />
-          ) : (
-            <p className="text-sm font-medium leading-6 text-fg">{task.title}</p>
-          )}
+                }}
+              />
+            ) : (
+              <p className="text-sm font-medium leading-6 text-fg">{task.title}</p>
+            )}
+            {task.labels.length > 0 && (
+              <div className="mt-1 flex flex-wrap gap-1">
+                {task.labels.map((l) => (
+                  <span
+                    key={l.id}
+                    className="rounded-md px-1.5 py-0.5 text-[10px] font-medium text-fg"
+                    style={{
+                      backgroundColor: `${l.color}22`,
+                      color: l.color,
+                    }}
+                  >
+                    {l.name}
+                  </span>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </div>
