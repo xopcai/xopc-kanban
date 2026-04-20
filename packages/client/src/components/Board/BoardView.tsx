@@ -107,7 +107,7 @@ export function BoardView({ onOpenTask }: { onOpenTask: (id: string) => void }) 
     <div className="flex flex-col gap-3">
       <TaskFilterBar />
       <DndContext sensors={sensors} onDragEnd={onDragEnd}>
-        <div className="flex gap-4 overflow-x-auto pb-4">
+        <div className="flex gap-4 overflow-x-auto px-2 pb-4 sm:px-3">
           {COLUMN_ORDER.map((status) => (
             <BoardColumn
               key={status}

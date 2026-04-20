@@ -39,7 +39,7 @@ export function BoardColumn({
       <div
         ref={setNodeRef}
         className={clsx(
-          'flex min-h-[200px] flex-col gap-2 rounded-xl bg-surface-base/80 p-2',
+          'flex min-h-[200px] flex-col gap-2 rounded-xl border border-edge-subtle bg-surface-base p-2',
           isOver && 'ring-2 ring-accent ring-offset-2 ring-offset-surface-base',
         )}
       >
