@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import {
   useAddDependency,
   useAddMemory,
+  useCreateSubtask,
   useDeleteTask,
   usePatchTask,
   useRemoveDependency,
@@ -42,11 +43,13 @@ export function TaskDetailPanel({
   const { data: allTasks = [] } = useTaskList(false);
   const addDep = useAddDependency(taskId);
   const removeDep = useRemoveDependency(taskId);
+  const addSubtask = useCreateSubtask(taskId);
 
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [note, setNote] = useState('');
   const [dependsOnPick, setDependsOnPick] = useState('');
+  const [subtaskTitle, setSubtaskTitle] = useState('');
 
   const taskLabel = (id: string) =>
     allTasks.find((x) => x.id === id)?.identifier ?? id.slice(0, 8);
@@ -82,7 +85,7 @@ export function TaskDetailPanel({
       <button
         type="button"
         aria-label="Close detail"
-        className="fixed inset-0 z-40 bg-black/20 transition-opacity duration-150 ease-out"
+        className="fixed inset-0 z-40 bg-[var(--overlay-scrim)] transition-opacity duration-150 ease-out"
         onClick={onClose}
       />
       <aside
@@ -164,23 +167,56 @@ export function TaskDetailPanel({
                 </select>
               </label>
 
-              {task.children.length > 0 && (
-                <div>
-                  <h3 className="text-sm font-semibold leading-6 text-fg">
-                    Subtasks
-                  </h3>
-                  <ul className="mt-2 space-y-1">
-                    {task.children.map((c) => (
-                      <li
-                        key={c.id}
-                        className="rounded-lg border border-edge-subtle px-2 py-1.5 text-sm text-fg-secondary"
-                      >
-                        {c.identifier} · {c.title}
-                      </li>
-                    ))}
-                  </ul>
+              <div>
+                <h3 className="text-sm font-semibold leading-6 text-fg">
+                  Subtasks
+                </h3>
+                <ul className="mt-2 space-y-1">
+                  {task.children.length === 0 && (
+                    <li className="text-sm text-fg-secondary">No subtasks yet.</li>
+                  )}
+                  {task.children.map((c) => (
+                    <li
+                      key={c.id}
+                      className="rounded-lg border border-edge-subtle px-2 py-1.5 text-sm text-fg-secondary"
+                    >
+                      {c.identifier} · {c.title}
+                    </li>
+                  ))}
+                </ul>
+                <div className="mt-2 flex flex-col gap-2 sm:flex-row sm:items-center">
+                  <input
+                    className="min-w-0 flex-1 rounded-xl border border-edge bg-surface-panel px-3 py-2 text-sm leading-6 text-fg placeholder:text-fg-subtle focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+                    placeholder="New subtask title"
+                    value={subtaskTitle}
+                    onChange={(e) => setSubtaskTitle(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        const t = subtaskTitle.trim();
+                        if (!t) return;
+                        addSubtask.mutate(
+                          { title: t },
+                          { onSuccess: () => setSubtaskTitle('') },
+                        );
+                      }
+                    }}
+                  />
+                  <button
+                    type="button"
+                    className="rounded-xl border border-edge bg-surface-panel px-4 py-2 text-sm font-medium text-fg transition-colors hover:bg-surface-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-accent active:scale-95"
+                    onClick={() => {
+                      const t = subtaskTitle.trim();
+                      if (!t) return;
+                      addSubtask.mutate(
+                        { title: t },
+                        { onSuccess: () => setSubtaskTitle('') },
+                      );
+                    }}
+                  >
+                    Add subtask
+                  </button>
                 </div>
-              )}
+              </div>
 
               <div>
                 <h3 className="text-sm font-semibold leading-6 text-fg">

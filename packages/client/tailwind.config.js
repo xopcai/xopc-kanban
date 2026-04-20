@@ -1,28 +1,32 @@
 /** @type {import('tailwindcss').Config} */
 export default {
+  darkMode: 'class',
   content: ['./index.html', './src/**/*.{ts,tsx}'],
   theme: {
     extend: {
       colors: {
         accent: {
-          DEFAULT: '#2563eb',
-          hover: '#1d4ed8',
+          DEFAULT: 'var(--color-accent)',
+          hover: 'var(--color-accent-hover)',
         },
         surface: {
-          base: '#f5f5f7',
-          panel: '#ffffff',
-          hover: '#e8e8ed',
-          active: '#dcdcde',
+          base: 'var(--color-surface-base)',
+          panel: 'var(--color-surface-panel)',
+          hover: 'var(--color-surface-hover)',
+          active: 'var(--color-surface-active)',
         },
         fg: {
-          DEFAULT: '#1d1d1f',
-          secondary: '#6e6e73',
-          subtle: '#86868b',
-          disabled: '#aeaeb2',
+          DEFAULT: 'var(--color-fg)',
+          secondary: 'var(--color-fg-secondary)',
+          subtle: 'var(--color-fg-subtle)',
+          disabled: 'var(--color-fg-disabled)',
         },
         edge: {
-          DEFAULT: '#d2d2d7',
-          subtle: '#ebebed',
+          DEFAULT: 'var(--color-edge)',
+          subtle: 'var(--color-edge-subtle)',
+        },
+        danger: {
+          DEFAULT: 'var(--color-danger)',
         },
         status: {
           backlog: '#86868b',
@@ -41,7 +45,7 @@ export default {
         },
       },
       boxShadow: {
-        elevated: '0 12px 40px rgba(0,0,0,0.08)',
+        elevated: 'var(--shadow-elevated)',
       },
     },
   },

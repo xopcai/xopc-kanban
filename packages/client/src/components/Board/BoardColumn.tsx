@@ -1,26 +1,19 @@
 import { useDroppable } from '@dnd-kit/core';
 import clsx from 'clsx';
 import type { Task, TaskStatus } from '../../types';
+import { statusLabel } from '../../lib/taskOrdering';
 import { TaskCard } from './TaskCard';
-
-const titles: Record<TaskStatus, string> = {
-  backlog: 'Backlog',
-  todo: 'Todo',
-  in_progress: 'In progress',
-  in_review: 'Review',
-  blocked: 'Blocked',
-  done: 'Done',
-  cancelled: 'Cancelled',
-};
 
 export function BoardColumn({
   status,
   tasks,
   onOpenTask,
+  onRenameTask,
 }: {
   status: TaskStatus;
   tasks: Task[];
   onOpenTask: (id: string) => void;
+  onRenameTask: (id: string, title: string) => void;
 }) {
   const { isOver, setNodeRef } = useDroppable({ id: status });
 
@@ -28,7 +21,7 @@ export function BoardColumn({
     <div className="flex w-64 shrink-0 flex-col gap-2">
       <div className="flex items-center justify-between px-1">
         <h3 className="text-sm font-semibold leading-6 text-fg">
-          {titles[status]}
+          {statusLabel(status)}
         </h3>
         <span className="text-xs leading-5 text-fg-subtle">{tasks.length}</span>
       </div>
@@ -40,7 +33,12 @@ export function BoardColumn({
         )}
       >
         {tasks.map((t) => (
-          <TaskCard key={t.id} task={t} onOpen={onOpenTask} />
+          <TaskCard
+            key={t.id}
+            task={t}
+            onOpen={onOpenTask}
+            onRename={onRenameTask}
+          />
         ))}
       </div>
     </div>

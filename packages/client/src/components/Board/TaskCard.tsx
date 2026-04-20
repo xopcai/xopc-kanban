@@ -1,5 +1,6 @@
 import { useDraggable } from '@dnd-kit/core';
 import clsx from 'clsx';
+import { useEffect, useRef, useState } from 'react';
 import type { Task } from '../../types';
 
 const priorityBar: Record<string, string> = {
@@ -12,15 +13,32 @@ const priorityBar: Record<string, string> = {
 export function TaskCard({
   task,
   onOpen,
+  onRename,
 }: {
   task: Task;
   onOpen: (id: string) => void;
+  onRename: (id: string, title: string) => void;
 }) {
   const { attributes, listeners, setNodeRef, transform, isDragging } =
     useDraggable({
       id: task.id,
       data: { task },
     });
+
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(task.title);
+  const openTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    if (!editing) setDraft(task.title);
+  }, [task.title, editing]);
+
+  useEffect(
+    () => () => {
+      if (openTimer.current) clearTimeout(openTimer.current);
+    },
+    [],
+  );
 
   const style = transform
     ? {
@@ -30,15 +48,35 @@ export function TaskCard({
     : undefined;
 
   return (
-    <button
-      type="button"
+    <div
       ref={setNodeRef}
       style={style}
       {...listeners}
       {...attributes}
-      onClick={() => onOpen(task.id)}
+      role="button"
+      tabIndex={0}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          onOpen(task.id);
+        }
+      }}
+      onClick={() => {
+        if (editing) return;
+        if (openTimer.current) clearTimeout(openTimer.current);
+        openTimer.current = setTimeout(() => onOpen(task.id), 220);
+      }}
+      onDoubleClick={(e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        if (openTimer.current) {
+          clearTimeout(openTimer.current);
+          openTimer.current = null;
+        }
+        setEditing(true);
+      }}
       className={clsx(
-        'relative w-full rounded-xl border border-edge-subtle bg-surface-panel px-3 py-3 text-left',
+        'relative w-full cursor-grab rounded-xl border border-edge-subtle bg-surface-panel px-3 py-3 text-left active:cursor-grabbing',
         'transition-colors duration-150 ease-out hover:bg-surface-hover',
         'focus:outline-none focus-visible:ring-2 focus-visible:ring-accent',
         'active:scale-95',
@@ -69,9 +107,37 @@ export function TaskCard({
         />
         <div className="min-w-0 flex-1">
           <p className="text-xs leading-5 text-fg-subtle">{task.identifier}</p>
-          <p className="text-sm font-medium leading-6 text-fg">{task.title}</p>
+          {editing ? (
+            <input
+              autoFocus
+              className="mt-0.5 w-full rounded-lg border border-edge bg-surface-panel px-2 py-1 text-sm font-medium leading-6 text-fg focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+              value={draft}
+              onChange={(e) => setDraft(e.target.value)}
+              onClick={(e) => e.stopPropagation()}
+              onPointerDown={(e) => e.stopPropagation()}
+              onKeyDown={(e) => {
+                e.stopPropagation();
+                if (e.key === 'Escape') {
+                  setDraft(task.title);
+                  setEditing(false);
+                }
+                if (e.key === 'Enter') {
+                  const t = draft.trim();
+                  if (t && t !== task.title) onRename(task.id, t);
+                  setEditing(false);
+                }
+              }}
+              onBlur={() => {
+                const t = draft.trim();
+                if (t && t !== task.title) onRename(task.id, t);
+                setEditing(false);
+              }}
+            />
+          ) : (
+            <p className="text-sm font-medium leading-6 text-fg">{task.title}</p>
+          )}
         </div>
       </div>
-    </button>
+    </div>
   );
 }

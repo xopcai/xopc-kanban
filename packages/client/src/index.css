@@ -3,6 +3,42 @@
 @tailwind utilities;
 
 @layer base {
+  :root {
+    --color-surface-base: #f5f5f7;
+    --color-surface-panel: #ffffff;
+    --color-surface-hover: #e8e8ed;
+    --color-surface-active: #dcdcde;
+    --color-fg: #1d1d1f;
+    --color-fg-secondary: #6e6e73;
+    --color-fg-subtle: #86868b;
+    --color-fg-disabled: #aeaeb2;
+    --color-edge: #d2d2d7;
+    --color-edge-subtle: #ebebed;
+    --color-accent: #2563eb;
+    --color-accent-hover: #1d4ed8;
+    --color-danger: #dc2626;
+    --shadow-elevated: 0 12px 40px rgba(0, 0, 0, 0.08);
+    --overlay-scrim: rgba(0, 0, 0, 0.2);
+  }
+
+  .dark {
+    --color-surface-base: #1c1c1e;
+    --color-surface-panel: #2c2c2e;
+    --color-surface-hover: #3a3a3c;
+    --color-surface-active: #48484a;
+    --color-fg: #f5f5f7;
+    --color-fg-secondary: #a1a1a6;
+    --color-fg-subtle: #8e8e93;
+    --color-fg-disabled: #636366;
+    --color-edge: #48484a;
+    --color-edge-subtle: #3a3a3c;
+    --color-accent: #3b82f6;
+    --color-accent-hover: #2563eb;
+    --color-danger: #f87171;
+    --shadow-elevated: 0 12px 40px rgba(0, 0, 0, 0.35);
+    --overlay-scrim: rgba(0, 0, 0, 0.45);
+  }
+
   html {
     @apply antialiased;
   }

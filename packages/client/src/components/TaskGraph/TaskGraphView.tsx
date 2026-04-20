@@ -171,7 +171,7 @@ export function TaskGraphView({
                     className={clsx(
                       'cursor-pointer stroke transition-colors duration-150 ease-out',
                       isAnchor
-                        ? 'fill-blue-50 stroke-accent'
+                        ? 'fill-accent/10 stroke-accent'
                         : 'fill-surface-panel stroke-edge',
                     )}
                     onClick={() => onOpenTask(node.id)}

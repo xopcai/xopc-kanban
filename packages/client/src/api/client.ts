@@ -67,8 +67,20 @@ export const api = {
     status?: TaskStatus;
     priority?: TaskPriority;
     intent?: string;
+    parentId?: string | null;
   }) {
     return fetch('/api/tasks', {
+      method: 'POST',
+      headers: jsonHeaders,
+      body: JSON.stringify(body),
+    }).then((r) => parseJson<Task>(r));
+  },
+
+  createSubtask(
+    parentId: string,
+    body: { title: string; description?: string | null },
+  ) {
+    return fetch(`/api/tasks/${parentId}/subtasks`, {
       method: 'POST',
       headers: jsonHeaders,
       body: JSON.stringify(body),

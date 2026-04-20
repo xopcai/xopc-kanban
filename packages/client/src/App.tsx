@@ -1,15 +1,85 @@
-import { GitBranch, LayoutGrid, List, Plus } from 'lucide-react';
+import { GitBranch, LayoutGrid, List, Monitor, Moon, Plus, Sun } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { BoardView } from './components/Board/BoardView';
+import { CommandPalette } from './components/CommandPalette/CommandPalette';
 import { ListView } from './components/List/ListView';
 import { TaskGraphView } from './components/TaskGraph/TaskGraphView';
 import { TaskDetailPanel } from './components/TaskDetail/TaskDetailPanel';
 import { useCreateTask } from './hooks/useTasks';
 import { useTaskEventsStream } from './hooks/useSSE';
-import { useUiStore } from './store/uiStore';
+import { useUiStore, type ThemeMode } from './store/uiStore';
+
+function useSyncThemeClass() {
+  const themeMode = useUiStore((s) => s.themeMode);
+  useEffect(() => {
+    const apply = () => {
+      let dark = false;
+      if (themeMode === 'dark') dark = true;
+      else if (themeMode === 'light') dark = false;
+      else dark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+      document.documentElement.classList.toggle('dark', dark);
+    };
+    apply();
+    if (themeMode !== 'system') return;
+    const mq = window.matchMedia('(prefers-color-scheme: dark)');
+    mq.addEventListener('change', apply);
+    return () => mq.removeEventListener('change', apply);
+  }, [themeMode]);
+}
+
+function useGlobalShortcuts() {
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      const st = useUiStore.getState();
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault();
+        st.setCommandOpen(!st.commandOpen);
+        return;
+      }
+
+      if (st.commandOpen) return;
+
+      const target = e.target as HTMLElement;
+      const inField =
+        target.tagName === 'INPUT' ||
+        target.tagName === 'TEXTAREA' ||
+        target.tagName === 'SELECT' ||
+        target.isContentEditable;
+
+      if (!inField) {
+        if ((e.key === 'c' || e.key === 'C') && !e.metaKey && !e.ctrlKey && !e.altKey) {
+          st.setCreateOpen(true);
+          return;
+        }
+        if (e.key === '1') {
+          st.setViewMode('board');
+          return;
+        }
+        if (e.key === '2') {
+          st.setViewMode('list');
+          return;
+        }
+        if (e.key === '3') {
+          st.setViewMode('graph');
+          return;
+        }
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, []);
+}
+
+const THEME_ICON: Record<ThemeMode, typeof Sun> = {
+  light: Sun,
+  dark: Moon,
+  system: Monitor,
+};
 
 export default function App() {
   useTaskEventsStream(true);
+  useSyncThemeClass();
+  useGlobalShortcuts();
 
   const viewMode = useUiStore((s) => s.viewMode);
   const setViewMode = useUiStore((s) => s.setViewMode);
@@ -17,21 +87,19 @@ export default function App() {
   const selectTask = useUiStore((s) => s.selectTask);
   const createOpen = useUiStore((s) => s.createOpen);
   const setCreateOpen = useUiStore((s) => s.setCreateOpen);
+  const themeMode = useUiStore((s) => s.themeMode);
+  const setThemeMode = useUiStore((s) => s.setThemeMode);
 
   const create = useCreateTask();
   const [newTitle, setNewTitle] = useState('');
 
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      const tag = (e.target as HTMLElement).tagName;
-      if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
-      if (e.key === 'c' || e.key === 'C') {
-        setCreateOpen(true);
-      }
-    };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [setCreateOpen]);
+  const cycleTheme = () => {
+    const order: ThemeMode[] = ['system', 'light', 'dark'];
+    const i = order.indexOf(themeMode);
+    setThemeMode(order[(i + 1) % order.length]!);
+  };
+
+  const ThemeIcon = THEME_ICON[themeMode];
 
   return (
     <div className="flex min-h-screen">
@@ -78,6 +146,17 @@ export default function App() {
             Graph
           </button>
         </nav>
+
+        <div className="mt-auto flex flex-col gap-1.5 border-t border-edge-subtle pt-3">
+          <button
+            type="button"
+            onClick={cycleTheme}
+            className="flex items-center gap-2 rounded-xl px-3 py-2 text-sm font-medium leading-6 text-fg-secondary transition-colors duration-150 hover:bg-surface-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+          >
+            <ThemeIcon className="h-5 w-5 text-fg-subtle" />
+            Theme: {themeMode}
+          </button>
+        </div>
       </aside>
 
       <main className="flex min-w-0 flex-1 flex-col bg-surface-panel">
@@ -87,7 +166,12 @@ export default function App() {
               Tasks
             </h1>
             <p className="text-sm leading-relaxed text-fg-secondary">
-              Drag cards to change status. Press <kbd className="rounded border border-edge px-1">C</kbd> to create.
+              <kbd className="rounded border border-edge px-1">⌘K</kbd>{' '}
+              command palette ·{' '}
+              <kbd className="rounded border border-edge px-1">C</kbd> new ·{' '}
+              <kbd className="rounded border border-edge px-1">1</kbd>–
+              <kbd className="rounded border border-edge px-1">3</kbd> views ·
+              double-click card title to rename
             </p>
           </div>
           <button
@@ -111,12 +195,14 @@ export default function App() {
         </div>
       </main>
 
+      <CommandPalette />
+
       {createOpen && (
         <>
           <button
             type="button"
             aria-label="Close create"
-            className="fixed inset-0 z-40 bg-black/20"
+            className="fixed inset-0 z-40 bg-[var(--overlay-scrim)]"
             onClick={() => setCreateOpen(false)}
           />
           <div className="fixed left-1/2 top-24 z-50 w-full max-w-md -translate-x-1/2 rounded-xl border border-edge bg-surface-panel p-4 shadow-elevated">

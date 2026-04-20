@@ -64,6 +64,28 @@ export function useCreateTask() {
   });
 }
 
+export function useCreateSubtask(parentId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (body: { title: string; description?: string | null }) =>
+      api.createSubtask(parentId, body),
+    onSettled: () => {
+      void qc.invalidateQueries({ queryKey: taskKeys.all });
+    },
+  });
+}
+
+export function useUpdateTaskTitle() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, title }: { id: string; title: string }) =>
+      api.patchTask(id, { title }),
+    onSettled: () => {
+      void qc.invalidateQueries({ queryKey: taskKeys.all });
+    },
+  });
+}
+
 export function usePatchTask(id: string) {
   const qc = useQueryClient();
   return useMutation({
