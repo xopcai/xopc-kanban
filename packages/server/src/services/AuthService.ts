@@ -467,6 +467,65 @@ export async function listMemberDirectoryForActor(actor: Actor): Promise<
   }));
 }
 
+/** Agent accounts for the same directory UI as members (full list for non-guests; guests see agents on shared projects). */
+export async function listAgentsDirectoryForActor(actor: Actor): Promise<
+  { id: string; name: string; description: string | null; createdAt: string }[]
+> {
+  if (actor.type !== 'member') {
+    throw new Error('Forbidden');
+  }
+  if (actor.accountRole !== 'guest') {
+    const rows = await db
+      .select({
+        id: t.agent.id,
+        name: t.agent.name,
+        description: t.agent.description,
+        createdAt: t.agent.createdAt,
+      })
+      .from(t.agent)
+      .orderBy(asc(t.agent.name));
+    return rows;
+  }
+
+  const memberships = await db
+    .select({ projectId: t.projectMember.projectId })
+    .from(t.projectMember)
+    .where(
+      and(
+        eq(t.projectMember.actorType, 'member'),
+        eq(t.projectMember.actorId, actor.id),
+      ),
+    )
+    .all();
+  const projectIds = [...new Set(memberships.map((m) => m.projectId))];
+  if (projectIds.length === 0) return [];
+
+  const agentLinkRows = await db
+    .select({ actorId: t.projectMember.actorId })
+    .from(t.projectMember)
+    .where(
+      and(
+        eq(t.projectMember.actorType, 'agent'),
+        inArray(t.projectMember.projectId, projectIds),
+      ),
+    )
+    .all();
+  const agentIds = [...new Set(agentLinkRows.map((r) => r.actorId))];
+  if (agentIds.length === 0) return [];
+
+  const rows = await db
+    .select({
+      id: t.agent.id,
+      name: t.agent.name,
+      description: t.agent.description,
+      createdAt: t.agent.createdAt,
+    })
+    .from(t.agent)
+    .where(inArray(t.agent.id, agentIds))
+    .orderBy(asc(t.agent.name));
+  return rows;
+}
+
 /** Workspace directory: guests only see humans who share a project with them (plus themselves); others see all members. */
 export async function listMembersPublicForActor(actor: Actor): Promise<
   { id: string; email: string; displayName: string }[]

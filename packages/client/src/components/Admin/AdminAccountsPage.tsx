@@ -326,6 +326,31 @@ export function AdminAccountsPage() {
             ))}
           </ul>
         )}
+
+        <h2 className="mt-10 text-sm font-semibold text-fg">{t('admin.agentsList')}</h2>
+        {listQuery.isLoading ? (
+          <p className="mt-2 text-sm text-fg-secondary">{t('loading.generic')}</p>
+        ) : (listQuery.data?.agents ?? []).length === 0 ? (
+          <p className="mt-2 text-sm text-fg-secondary">{t('admin.agentsEmpty')}</p>
+        ) : (
+          <ul className="mt-3 divide-y divide-edge-subtle rounded-xl border border-edge-subtle bg-surface-panel">
+            {(listQuery.data?.agents ?? []).map((a) => (
+              <li key={a.id}>
+                <div className="flex flex-wrap items-center justify-between gap-2 px-4 py-3 text-sm">
+                  <div className="min-w-0">
+                    <p className="truncate font-medium text-fg">{a.name}</p>
+                    <p className="truncate font-mono text-xs text-fg-subtle" title={a.id}>
+                      {a.id}
+                    </p>
+                  </div>
+                  <span className="shrink-0 rounded-lg bg-surface-base px-2 py-0.5 text-xs font-medium text-fg-secondary">
+                    {t('admin.agentAccountBadge')}
+                  </span>
+                </div>
+              </li>
+            ))}
+          </ul>
+        )}
       </div>
 
       {canManage && addOpen && (
@@ -341,7 +366,7 @@ export function AdminAccountsPage() {
             role="dialog"
             aria-modal="true"
             aria-labelledby="admin-add-members-title"
-            className="fixed top-1/2 z-[56] max-h-[min(36rem,calc(100vh-2rem))] w-full max-w-lg -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-2xl border border-edge-subtle bg-surface-panel p-5 shadow-elevated"
+            className="fixed top-[min(7rem,14vh)] z-[56] max-h-[min(36rem,calc(100vh-9rem))] w-full max-w-lg -translate-x-1/2 overflow-y-auto rounded-2xl border border-edge-subtle bg-surface-panel p-5 shadow-elevated"
             style={{ left: mainColumnCenterX }}
           >
             <h2 id="admin-add-members-title" className="text-lg font-semibold text-fg">

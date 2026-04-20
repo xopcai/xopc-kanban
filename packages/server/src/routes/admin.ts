@@ -6,6 +6,7 @@ import { requireAdmin } from '../middleware/requireAdmin.js';
 import {
   createMemberByAdmin,
   createMembersByAdminBatch,
+  listAgentsDirectoryForActor,
   listMemberDirectoryForActor,
   updateMemberByAdmin,
 } from '../services/AuthService.js';
@@ -56,7 +57,8 @@ export const adminRouter = new Hono<{ Variables: { actor: Actor } }>()
     }
     try {
       const members = await listMemberDirectoryForActor(actor);
-      return c.json({ members });
+      const agents = await listAgentsDirectoryForActor(actor);
+      return c.json({ members, agents });
     } catch (e) {
       const msg = e instanceof Error ? e.message : 'Failed to list members';
       if (msg === 'Forbidden') return c.json({ error: msg }, 403);

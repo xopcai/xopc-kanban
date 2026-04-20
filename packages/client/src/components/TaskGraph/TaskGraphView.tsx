@@ -173,11 +173,15 @@ export function TaskGraphView({
                   <circle
                     r={NODE_R}
                     className={clsx(
-                      'cursor-pointer stroke transition-colors duration-150 ease-out',
-                      isAnchor
-                        ? 'fill-accent/10 stroke-accent'
-                        : 'fill-surface-panel stroke-edge',
+                      'cursor-pointer transition-colors duration-150 ease-out',
+                      isAnchor ? 'stroke-accent' : 'stroke-edge',
                     )}
+                    style={{
+                      fill: isAnchor
+                        ? 'color-mix(in srgb, var(--color-accent) 12%, var(--color-surface-panel))'
+                        : 'var(--color-surface-panel)',
+                    }}
+                    strokeWidth={1.5}
                     onClick={() => onOpenTask(node.id)}
                   />
                   <text

@@ -139,6 +139,13 @@ export type AdminMemberRow = {
   createdAt: string;
 };
 
+export type AdminAgentRow = {
+  id: string;
+  name: string;
+  description: string | null;
+  createdAt: string;
+};
+
 export type WorkspaceActorsResponse = {
   members: {
     type: 'member';
@@ -190,7 +197,7 @@ export const api = {
 
   listAdminMembers() {
     return apiFetch('/api/admin/members').then((r) =>
-      parseJson<{ members: AdminMemberRow[] }>(r),
+      parseJson<{ members: AdminMemberRow[]; agents: AdminAgentRow[] }>(r),
     );
   },
 

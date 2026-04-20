@@ -5,8 +5,6 @@ import {
   LayoutGrid,
   List,
   Plus,
-  Shield,
-  Users,
 } from 'lucide-react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useLayoutEffect, useState } from 'react';
@@ -437,6 +435,7 @@ function MainApp() {
               const out = await api.createAgent({ name: name.trim() });
               setAgentKeyModal(out.apiKey);
               void qc.invalidateQueries({ queryKey: workspaceKeys.actors });
+              void qc.invalidateQueries({ queryKey: ['admin', 'members'] });
             } catch (e) {
               await useDialogStore.getState().alert({
                 message: e instanceof Error ? e.message : t('auth.error'),
@@ -475,24 +474,6 @@ function MainApp() {
           <FolderKanban className="h-5 w-5 text-fg-subtle" />
           {t('nav.projects')}
         </button>
-        {user && user.typ === 'member' && (
-          <button
-            type="button"
-            onClick={() => navigate('/admin/accounts')}
-            className={`flex items-center gap-2 rounded-xl px-3 py-2 text-sm font-medium leading-6 transition-colors duration-150 ease-out focus:outline-none focus-visible:ring-2 focus-visible:ring-accent ${
-              onAdminRoute
-                ? 'bg-surface-active text-fg'
-                : 'text-fg-secondary hover:bg-surface-hover'
-            }`}
-          >
-            {user.accountRole === 'admin' ? (
-              <Shield className="h-5 w-5 text-fg-subtle" />
-            ) : (
-              <Users className="h-5 w-5 text-fg-subtle" />
-            )}
-            {t('admin.navLink')}
-          </button>
-        )}
         <button
           type="button"
           onClick={() => {
