@@ -4,6 +4,7 @@
 
 @layer base {
   :root {
+    color-scheme: light;
     --color-surface-base: #f5f5f7;
     --color-surface-panel: #ffffff;
     --color-surface-hover: #e8e8ed;
@@ -22,6 +23,7 @@
   }
 
   .dark {
+    color-scheme: dark;
     --color-surface-base: #1c1c1e;
     --color-surface-panel: #2c2c2e;
     --color-surface-hover: #3a3a3c;
