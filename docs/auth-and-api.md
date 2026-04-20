@@ -36,12 +36,21 @@
 | `/api/auth` | 注册、登录、当前用户、Agent API Key 换 JWT |
 | `/api/agents` | 已登录 **member** 创建/列出 Agent（创建时返回一次性 apiKey） |
 | `/api/workspace` | 工作区协作者（members + agents）等 |
-| `/api/tasks` | 任务 CRUD、子任务、依赖、评论 memory 等 |
+| `/api/projects` | 项目 CRUD（member 创建）、归档、`/members` 子资源（增删改角色） |
+| `/api/tasks` | 任务 CRUD、子任务、依赖、评论 memory 等（见下文 ACL） |
 | `/api/labels` | 标签 |
 | `/api/events` | SSE 等事件流 |
 | `/api/agent` | Agent 相关占位/扩展路由 |
 
-具体子路径以实现文件为准：`routes/auth.ts`、`routes/agents.ts`、`routes/workspace.ts`、`routes/tasks.ts` 等。
+具体子路径以实现文件为准：`routes/auth.ts`、`routes/agents.ts`、`routes/workspace.ts`、`routes/projects.ts`、`routes/tasks.ts` 等。
+
+### 4.1 项目与任务 ACL
+
+- **`GET /api/tasks`**：查询参数 **`projectId` 必填**，且调用者须为该项目的 `project_member`，否则 **403**。
+- **创建任务**：请求体须包含 `projectId`，或提供 `parentId`（从父任务继承项目）；须为该项目成员。
+- **读改删任务及其子资源**（子任务、依赖、memory、状态等）：按任务所属 `project_id` 校验成员身份；非成员 **403**。
+- **`GET /api/events/:taskId`**：在建立 SSE 前加载任务并校验该任务所在项目的成员身份。
+- **Projects API**：列表仅返回当前 Actor 作为成员参与的项目；元数据更新需 `admin`/`owner`（以 `ProjectService` 为准），归档等敏感操作限制见实现。
 
 ## 5. CORS
 
@@ -52,6 +61,7 @@
 - Token 存 **`localStorage`**（键名见 `packages/client/src/store/authStore.ts`）
 - 统一通过 `apiFetch` 附加 `Authorization`；**401** 时对非登录类请求清理会话
 - 应用壳层：`hydrate` → 有 token 则请求 `GET /api/auth/me` 恢复 `user`，失败则登出
+- 当前项目：`localStorage` 键 `xopc-current-project`（见 `uiStore`）；登录后拉取 `GET /api/projects` 并校正/默认选中可访问项目
 
 ## 7. 密码与注册
 

@@ -6,10 +6,18 @@ import {
 import type { ListTasksParams } from '../api/client';
 import { api } from '../api/client';
 import { useAuthStore } from '../store/authStore';
+import { useUiStore } from '../store/uiStore';
 import type { DependencyType, TaskStatus } from '../types';
 
 export const workspaceKeys = {
   actors: ['workspace', 'actors'] as const,
+};
+
+export const projectKeys = {
+  all: ['projects'] as const,
+  list: ['projects', 'list'] as const,
+  detail: (id: string) => ['projects', 'detail', id] as const,
+  members: (id: string) => ['projects', 'members', id] as const,
 };
 
 export function useWorkspaceActors() {
@@ -23,15 +31,16 @@ export function useWorkspaceActors() {
 
 export const taskKeys = {
   all: ['tasks'] as const,
-  list: (params: ListTasksParams | undefined) =>
+  list: (params: ListTasksParams) =>
     [
       ...taskKeys.all,
       'list',
-      params?.rootOnly ?? false,
-      params?.status ?? '',
-      params?.priority ?? '',
-      params?.assigneeId ?? '',
-      params?.labelId ?? '',
+      params.projectId,
+      params.rootOnly ?? false,
+      params.status ?? '',
+      params.priority ?? '',
+      params.assigneeId ?? '',
+      params.labelId ?? '',
     ] as const,
   labels: ['labels'] as const,
   detail: (id: string) => [...taskKeys.all, 'detail', id] as const,
@@ -42,12 +51,115 @@ export const taskKeys = {
 
 export function useTaskList(
   rootOnly = true,
-  filters: Omit<ListTasksParams, 'rootOnly'> = {},
+  filters: Omit<ListTasksParams, 'rootOnly' | 'projectId'> = {},
 ) {
-  const params: ListTasksParams = { rootOnly, ...filters };
+  const projectId = useUiStore((s) => s.currentProjectId);
+  const params: ListTasksParams | null = projectId
+    ? { projectId, rootOnly, ...filters }
+    : null;
   return useQuery({
-    queryKey: taskKeys.list(params),
-    queryFn: () => api.listTasks(params),
+    queryKey: params ? taskKeys.list(params) : [...taskKeys.all, 'list', 'none'],
+    queryFn: () => api.listTasks(params!),
+    enabled: Boolean(params),
+  });
+}
+
+export function useProjectsList() {
+  const token = useAuthStore((s) => s.token);
+  return useQuery({
+    queryKey: projectKeys.list,
+    queryFn: () => api.listProjects(),
+    enabled: Boolean(token),
+  });
+}
+
+export function useProjectMembers(projectId: string | null) {
+  const token = useAuthStore((s) => s.token);
+  return useQuery({
+    queryKey: projectKeys.members(projectId ?? ''),
+    queryFn: () => api.listProjectMembers(projectId!),
+    enabled: Boolean(token && projectId),
+  });
+}
+
+export function useCreateProject() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: api.createProject,
+    onSuccess: (row) => {
+      useUiStore.getState().setCurrentProjectId(row.id);
+      void qc.invalidateQueries({ queryKey: projectKeys.all });
+    },
+  });
+}
+
+export function usePatchProject() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      id,
+      ...body
+    }: { id: string } & Parameters<typeof api.patchProject>[1]) =>
+      api.patchProject(id, body),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: projectKeys.all });
+    },
+  });
+}
+
+export function useArchiveProject() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: api.archiveProject,
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: projectKeys.all });
+      void qc.invalidateQueries({ queryKey: taskKeys.all });
+    },
+  });
+}
+
+export function useAddProjectMember(projectId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (body: Parameters<typeof api.addProjectMember>[1]) =>
+      api.addProjectMember(projectId, body),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: projectKeys.members(projectId) });
+    },
+  });
+}
+
+export function useRemoveProjectMember(projectId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      actorType,
+      actorId,
+    }: {
+      actorType: 'member' | 'agent';
+      actorId: string;
+    }) => api.removeProjectMember(projectId, actorType, actorId),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: projectKeys.members(projectId) });
+    },
+  });
+}
+
+export function usePatchProjectMemberRole(projectId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      actorType,
+      actorId,
+      role,
+    }: {
+      actorType: 'member' | 'agent';
+      actorId: string;
+      role: 'admin' | 'member';
+    }) => api.patchProjectMemberRole(projectId, actorType, actorId, role),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: projectKeys.members(projectId) });
+    },
   });
 }
 

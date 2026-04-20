@@ -3,16 +3,19 @@ import { cors } from 'hono/cors';
 import { Hono } from 'hono';
 import { logger } from 'hono/logger';
 import './db/client.js';
+import { ensureProjectAclBackfill } from './db/backfill-project-acl.js';
 import { seedLabelsIfEmpty } from './db/seed.js';
 import { agentRouter } from './routes/agent.js';
 import { agentsRouter } from './routes/agents.js';
 import { authRouter } from './routes/auth.js';
 import { eventsRouter } from './routes/events.js';
 import { labelsRouter } from './routes/labels.js';
+import { projectsRouter } from './routes/projects.js';
 import { tasksRouter } from './routes/tasks.js';
 import { workspaceRouter } from './routes/workspace.js';
 
 seedLabelsIfEmpty();
+ensureProjectAclBackfill();
 
 const app = new Hono();
 
@@ -31,6 +34,7 @@ app.get('/health', (c) => c.json({ ok: true }));
 app.route('/api/auth', authRouter);
 app.route('/api/agents', agentsRouter);
 app.route('/api/workspace', workspaceRouter);
+app.route('/api/projects', projectsRouter);
 app.route('/api/tasks', tasksRouter);
 app.route('/api/labels', labelsRouter);
 app.route('/api/events', eventsRouter);

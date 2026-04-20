@@ -1,6 +1,15 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { api } from '../../api/client';
+
+/** Server often returns English Zod messages; map to i18n when the UI locale is not English. */
+function localizeAuthErrorMessage(message: string, t: (k: string) => string): string {
+  const known: Record<string, string> = {
+    'Invalid email': 'auth.invalidEmail',
+  };
+  const key = known[message.trim()];
+  return key ? t(key) : message;
+}
 import { AppLogo } from '../AppLogo';
 import { useAuthStore } from '../../store/authStore';
 
@@ -40,7 +49,8 @@ export function LoginScreen() {
         });
       }
     } catch (e) {
-      setError(e instanceof Error ? e.message : t('auth.error'));
+      const msg = e instanceof Error ? e.message : t('auth.error');
+      setError(localizeAuthErrorMessage(msg, t));
     } finally {
       setPending(false);
     }

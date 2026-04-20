@@ -8,7 +8,49 @@
   "nav": {
     "board": "Board",
     "list": "List",
-    "graph": "Graph"
+    "graph": "Graph",
+    "projects": "Projects"
+  },
+  "projects": {
+    "pageTitle": "Projects",
+    "pageSubtitle": "Create workspaces, manage membership, and archive when work wraps up.",
+    "heading": "Workspace projects",
+    "subtitle": "Member accounts can create projects and add collaborators. Every task belongs to exactly one project.",
+    "newTitle": "New project name",
+    "titlePlaceholder": "e.g. Platform sprint",
+    "create": "Create project",
+    "agentHint": "Agent accounts can use projects they are invited to but cannot create new projects.",
+    "emptyList": "No projects yet. Create one above.",
+    "colTitle": "Title",
+    "colStatus": "Status",
+    "colActions": "Actions",
+    "colActor": "Person or agent",
+    "colRole": "Role",
+    "membersHeading": "Members — {{title}}",
+    "addMember": "Add member or agent",
+    "add": "Add",
+    "rename": "Rename",
+    "renameTitle": "Rename project",
+    "save": "Save",
+    "archive": "Archive",
+    "archiveConfirm": "Archive project \"{{title}}\"? It will disappear from the switcher.",
+    "current": "Project",
+    "noProjects": "No active projects",
+    "emptyTasks": "Create a project to start tracking tasks.",
+    "goCreate": "Open projects",
+    "needProject": "Select or create a project first",
+    "role": {
+      "owner": "Owner",
+      "admin": "Admin",
+      "member": "Member"
+    }
+  },
+  "projectStatus": {
+    "planned": "Planned",
+    "in_progress": "In progress",
+    "paused": "Paused",
+    "completed": "Completed",
+    "cancelled": "Archived"
   },
   "boardView": {
     "deleteTaskConfirm": "Delete task {{id}}?"
@@ -58,6 +100,7 @@
     "logout": "Log out",
     "loading": "Loading…",
     "error": "Something went wrong",
+    "invalidEmail": "Invalid email address",
     "agents": "Agents",
     "newAgent": "New agent",
     "agentNamePlaceholder": "Agent name",

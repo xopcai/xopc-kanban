@@ -5,6 +5,7 @@ import * as t from '../db/schema.js';
 import type { Actor } from '../types/actor.js';
 import type { CommentType, TaskComment } from '../types/index.js';
 import { eventBus } from './EventBus.js';
+import { HttpError, projectService } from './ProjectService.js';
 
 function nowIso(): string {
   return new Date().toISOString();
@@ -25,7 +26,12 @@ function mapRow(row: typeof t.taskComment.$inferSelect): TaskComment {
 }
 
 export class MemoryService {
-  async list(taskId: string): Promise<TaskComment[]> {
+  async list(taskId: string, actor: Actor): Promise<TaskComment[]> {
+    const task = await db.select().from(t.task).where(eq(t.task.id, taskId)).get();
+    if (!task) throw new HttpError('Task not found', 404);
+    if (!task.projectId) throw new HttpError('Task has no project', 403);
+    await projectService.assertMember(actor, task.projectId);
+
     const rows = await db
       .select()
       .from(t.taskComment)
@@ -39,6 +45,11 @@ export class MemoryService {
     input: { content: string; type?: CommentType; parentId?: string | null },
     author: Actor,
   ): Promise<TaskComment> {
+    const task = await db.select().from(t.task).where(eq(t.task.id, taskId)).get();
+    if (!task) throw new HttpError('Task not found', 404);
+    if (!task.projectId) throw new HttpError('Task has no project', 403);
+    await projectService.assertMember(author, task.projectId);
+
     const id = nanoid();
     const ts = nowIso();
     const type = input.type ?? 'comment';
@@ -72,13 +83,17 @@ export class MemoryService {
     return mapRow(row);
   }
 
-  async delete(taskId: string, memId: string): Promise<boolean> {
+  async delete(taskId: string, memId: string, actor: Actor): Promise<boolean> {
     const row = await db
       .select()
       .from(t.taskComment)
       .where(eq(t.taskComment.id, memId))
       .get();
     if (!row || row.taskId !== taskId) return false;
+
+    const task = await db.select().from(t.task).where(eq(t.task.id, taskId)).get();
+    if (!task || !task.projectId) return false;
+    await projectService.assertMember(actor, task.projectId);
 
     await db.delete(t.taskComment).where(eq(t.taskComment.id, memId));
     const ts = nowIso();

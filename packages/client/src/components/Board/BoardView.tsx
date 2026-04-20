@@ -34,8 +34,8 @@ export function BoardView({ onOpenTask }: { onOpenTask: (id: string) => void }) 
   const selectedTaskIds = useUiStore((s) => s.selectedTaskIds);
   const toggleTaskSelected = useUiStore((s) => s.toggleTaskSelected);
 
-  const listFilters = useMemo((): Omit<ListTasksParams, 'rootOnly'> => {
-    const f: Omit<ListTasksParams, 'rootOnly'> = {};
+  const listFilters = useMemo((): Omit<ListTasksParams, 'rootOnly' | 'projectId'> => {
+    const f: Omit<ListTasksParams, 'rootOnly' | 'projectId'> = {};
     if (taskFilters.priority) f.priority = taskFilters.priority;
     if (taskFilters.assigneeId === '__none__') f.assigneeId = '__none__';
     else if (taskFilters.assigneeId) f.assigneeId = taskFilters.assigneeId;

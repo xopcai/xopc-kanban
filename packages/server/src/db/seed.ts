@@ -16,10 +16,12 @@ export function seedLabelsIfEmpty(): void {
     { name: 'chore', color: '#86868b' },
   ];
   for (const s of seeds) {
-    db.insert(t.label).values({
-      id: nanoid(),
-      name: s.name,
-      color: s.color,
-    });
+    db.insert(t.label)
+      .values({
+        id: nanoid(),
+        name: s.name,
+        color: s.color,
+      })
+      .run();
   }
 }

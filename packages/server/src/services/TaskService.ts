@@ -15,6 +15,7 @@ import type {
 } from '../types/index.js';
 import type { Actor } from '../types/actor.js';
 import { eventBus } from './EventBus.js';
+import { HttpError, projectService } from './ProjectService.js';
 
 const IDENT_PREFIX = process.env.TASK_IDENTIFIER_PREFIX ?? 'XOPC';
 
@@ -106,6 +107,14 @@ function baseTask(
 }
 
 export class TaskService {
+  private async ensureProjectAccess(
+    actor: Actor,
+    projectId: string | null,
+  ): Promise<void> {
+    if (!projectId) throw new HttpError('Task has no project', 403);
+    await projectService.assertMember(actor, projectId);
+  }
+
   private assertTransition(from: TaskStatus, to: TaskStatus): void {
     if (from === to) return;
     const allowed = ALLOWED_TRANSITIONS[from];
@@ -115,15 +124,18 @@ export class TaskService {
   }
 
   async list(params: {
+    actor: Actor;
+    /** Required for ACL: scope tasks to this project. */
+    projectId: string;
     status?: TaskStatus;
     priority?: TaskPriority;
     /** `null` = unassigned only */
     assigneeId?: string | null;
     labelId?: string;
-    projectId?: string | null;
     parentId?: string | null;
     rootOnly?: boolean;
   }): Promise<Task[]> {
+    await projectService.assertMember(params.actor, params.projectId);
     const conditions = [];
     if (params.status) conditions.push(eq(t.task.status, params.status));
     if (params.priority) conditions.push(eq(t.task.priority, params.priority));
@@ -143,10 +155,7 @@ export class TaskService {
       }
       conditions.push(inArray(t.task.id, taskIds));
     }
-    if (params.projectId !== undefined) {
-      if (params.projectId === null) conditions.push(isNull(t.task.projectId));
-      else conditions.push(eq(t.task.projectId, params.projectId));
-    }
+    conditions.push(eq(t.task.projectId, params.projectId));
     if (params.rootOnly) conditions.push(isNull(t.task.parentId));
     if (params.parentId !== undefined && !params.rootOnly) {
       if (params.parentId === null) conditions.push(isNull(t.task.parentId));
@@ -177,9 +186,10 @@ export class TaskService {
     }));
   }
 
-  async getById(id: string): Promise<Task | null> {
+  async getById(id: string, actor?: Actor): Promise<Task | null> {
     const row = await db.select().from(t.task).where(eq(t.task.id, id)).get();
     if (!row) return null;
+    if (actor) await this.ensureProjectAccess(actor, row.projectId);
 
     const childRows = await db
       .select()
@@ -224,6 +234,21 @@ export class TaskService {
     },
     creator: Actor,
   ): Promise<Task> {
+    let projectId: string | null = input.projectId ?? null;
+    if (input.parentId) {
+      const parent = await db
+        .select()
+        .from(t.task)
+        .where(eq(t.task.id, input.parentId))
+        .get();
+      if (!parent) throw new HttpError('Parent task not found', 404);
+      await this.ensureProjectAccess(creator, parent.projectId);
+      projectId = parent.projectId;
+    } else {
+      if (!projectId) throw new HttpError('projectId is required', 400);
+      await projectService.assertMember(creator, projectId);
+    }
+
     const id = nanoid();
     const ts = nowIso();
 
@@ -255,7 +280,7 @@ export class TaskService {
 
     await db.insert(t.task).values({
       id,
-      projectId: input.projectId ?? null,
+      projectId,
       number,
       identifier,
       title: input.title,
@@ -282,7 +307,7 @@ export class TaskService {
       );
     }
 
-    const created = await this.getById(id);
+    const created = await this.getById(id, creator);
     if (!created) throw new Error('Failed to load created task');
 
     await eventBus.publish({
@@ -312,9 +337,16 @@ export class TaskService {
       position: number;
       labelIds: string[];
     }>,
+    actor: Actor,
   ): Promise<Task | null> {
     const existing = await db.select().from(t.task).where(eq(t.task.id, id)).get();
     if (!existing) return null;
+
+    await this.ensureProjectAccess(actor, existing.projectId);
+    if (patch.projectId !== undefined && patch.projectId !== existing.projectId) {
+      if (!patch.projectId) throw new HttpError('Cannot remove project from task', 400);
+      await projectService.assertMember(actor, patch.projectId);
+    }
 
     const ts = nowIso();
     const updates: Partial<typeof t.task.$inferInsert> = { updatedAt: ts };
@@ -349,7 +381,7 @@ export class TaskService {
       }
     }
 
-    const next = await this.getById(id);
+    const next = await this.getById(id, actor);
     await eventBus.publish({
       type: 'task.updated',
       taskId: id,
@@ -367,6 +399,8 @@ export class TaskService {
   ): Promise<Task | null> {
     const existing = await db.select().from(t.task).where(eq(t.task.id, id)).get();
     if (!existing) return null;
+
+    await this.ensureProjectAccess(author, existing.projectId);
 
     this.assertTransition(existing.status, nextStatus);
     const ts = nowIso();
@@ -388,7 +422,7 @@ export class TaskService {
       updatedAt: ts,
     });
 
-    const task = await this.getById(id);
+    const task = await this.getById(id, author);
     await eventBus.publish({
       type: 'task.status_changed',
       taskId: id,
@@ -398,9 +432,11 @@ export class TaskService {
     return task;
   }
 
-  async delete(id: string): Promise<boolean> {
+  async delete(id: string, actor: Actor): Promise<boolean> {
     const existing = await db.select().from(t.task).where(eq(t.task.id, id)).get();
     if (!existing) return false;
+
+    await this.ensureProjectAccess(actor, existing.projectId);
 
     await db.delete(t.task).where(eq(t.task.id, id));
     const ts = nowIso();
@@ -465,7 +501,14 @@ export class TaskService {
     return false;
   }
 
-  async listDependencies(taskId: string): Promise<TaskDependencyEdge[]> {
+  async listDependencies(
+    taskId: string,
+    actor: Actor,
+  ): Promise<TaskDependencyEdge[]> {
+    const task = await db.select().from(t.task).where(eq(t.task.id, taskId)).get();
+    if (!task) throw new HttpError('Task not found', 404);
+    await this.ensureProjectAccess(actor, task.projectId);
+
     const rows = await db
       .select()
       .from(t.taskDependency)
@@ -488,6 +531,7 @@ export class TaskService {
   async addDependency(
     taskId: string,
     dependsOnId: string,
+    actor: Actor,
     depType: DependencyType = 'blocks',
   ): Promise<TaskDependencyEdge> {
     if (taskId === dependsOnId) {
@@ -498,6 +542,11 @@ export class TaskService {
       db.select().from(t.task).where(eq(t.task.id, dependsOnId)).get(),
     ]);
     if (!a || !b) throw new Error('Task not found');
+    await this.ensureProjectAccess(actor, a.projectId);
+    await this.ensureProjectAccess(actor, b.projectId);
+    if (a.projectId !== b.projectId) {
+      throw new HttpError('Dependencies must be within the same project', 400);
+    }
 
     const dup = await db
       .select()
@@ -544,6 +593,7 @@ export class TaskService {
   async removeDependency(
     edgeId: string,
     scopeTaskId: string,
+    actor: Actor,
   ): Promise<boolean> {
     const row = await db
       .select()
@@ -554,6 +604,9 @@ export class TaskService {
     if (row.taskId !== scopeTaskId && row.dependsOnId !== scopeTaskId) {
       return false;
     }
+    const task = await db.select().from(t.task).where(eq(t.task.id, scopeTaskId)).get();
+    if (!task) return false;
+    await this.ensureProjectAccess(actor, task.projectId);
 
     await db.delete(t.taskDependency).where(eq(t.taskDependency.id, edgeId));
     const ts = nowIso();
@@ -573,6 +626,7 @@ export class TaskService {
   ): Promise<Task | null> {
     const parent = await db.select().from(t.task).where(eq(t.task.id, parentId)).get();
     if (!parent) return null;
+    await this.ensureProjectAccess(creator, parent.projectId);
     return this.create(
       {
         title: input.title,
@@ -585,8 +639,8 @@ export class TaskService {
     );
   }
 
-  async getGraph(taskId: string): Promise<TaskGraphResponse | null> {
-    const root = await this.getById(taskId);
+  async getGraph(taskId: string, actor: Actor): Promise<TaskGraphResponse | null> {
+    const root = await this.getById(taskId, actor);
     if (!root) return null;
 
     const ids = await this.expandConnectedTaskIds(taskId);
@@ -628,8 +682,12 @@ export class TaskService {
     return { root, nodes, edges };
   }
 
-  async bulkDelete(ids: string[]): Promise<void> {
+  async bulkDelete(ids: string[], actor: Actor): Promise<void> {
     const unique = [...new Set(ids)];
+    for (const id of unique) {
+      const row = await db.select().from(t.task).where(eq(t.task.id, id)).get();
+      if (row) await this.ensureProjectAccess(actor, row.projectId);
+    }
     const ts = nowIso();
     db.transaction((tx) => {
       for (const id of unique) {
@@ -646,12 +704,17 @@ export class TaskService {
     }
   }
 
-  async bulkSetStatus(ids: string[], nextStatus: TaskStatus): Promise<void> {
+  async bulkSetStatus(
+    ids: string[],
+    nextStatus: TaskStatus,
+    actor: Actor,
+  ): Promise<void> {
     const unique = [...new Set(ids)];
     const ts = nowIso();
     for (const id of unique) {
       const existing = await db.select().from(t.task).where(eq(t.task.id, id)).get();
       if (!existing) continue;
+      await this.ensureProjectAccess(actor, existing.projectId);
       this.assertTransition(existing.status, nextStatus);
       await db
         .update(t.task)

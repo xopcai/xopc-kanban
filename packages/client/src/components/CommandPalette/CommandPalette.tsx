@@ -89,20 +89,20 @@ export function CommandPalette() {
             </p>
           )}
           <ul className="flex flex-col gap-0.5">
-            {filtered.map((t) => (
-              <li key={t.id}>
+            {filtered.map((task) => (
+              <li key={task.id}>
                 <button
                   type="button"
                   className="flex w-full flex-col rounded-xl px-3 py-2 text-left text-sm transition-colors duration-150 hover:bg-surface-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
                   onClick={() =>
-                    run(() => useUiStore.getState().selectTask(t.id))
+                    run(() => useUiStore.getState().selectTask(task.id))
                   }
                 >
                   <span className="font-medium leading-6 text-fg">
-                    {t.title}
+                    {task.title}
                   </span>
                   <span className="text-xs leading-5 text-fg-subtle">
-                    {t.identifier} · {t.status}
+                    {task.identifier} · {task.status}
                   </span>
                 </button>
               </li>

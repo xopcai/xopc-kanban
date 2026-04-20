@@ -3,6 +3,11 @@ import type { AuthUser } from '../store/authStore';
 import type {
   DependencyType,
   Label,
+  Project,
+  ProjectMember,
+  ProjectMemberRole,
+  ProjectPriority,
+  ProjectStatus,
   Task,
   TaskComment,
   TaskDependencyEdge,
@@ -43,15 +48,70 @@ export async function apiFetch(
   return res;
 }
 
+/** Turn API error JSON (e.g. Zod `{ error: { issues: [...] } }`) into a short user-facing string. */
+export function formatApiErrorBody(bodyText: string): string {
+  const raw = bodyText.trim();
+  if (!raw) return '';
+
+  type ZodIssue = { message?: string; path?: unknown };
+  type Parsed = {
+    message?: string;
+    error?:
+      | string
+      | {
+          issues?: ZodIssue[];
+          message?: string;
+          name?: string;
+        };
+  };
+
+  try {
+    const j = JSON.parse(raw) as Parsed;
+    if (typeof j.message === 'string' && j.message.trim()) {
+      return j.message.trim();
+    }
+    const err = j.error;
+    if (typeof err === 'string' && err.trim()) return err.trim();
+    if (err && typeof err === 'object' && Array.isArray(err.issues)) {
+      const msgs = err.issues
+        .map((i) => (typeof i?.message === 'string' ? i.message.trim() : ''))
+        .filter(Boolean);
+      if (msgs.length > 0) return msgs.join(' ');
+    }
+    if (
+      err &&
+      typeof err === 'object' &&
+      typeof err.message === 'string' &&
+      err.message.trim()
+    ) {
+      return err.message.trim();
+    }
+  } catch {
+    /* not JSON — fall through */
+  }
+
+  return raw.length > 280 ? `${raw.slice(0, 277)}…` : raw;
+}
+
 async function parseJson<T>(res: Response): Promise<T> {
   if (!res.ok) {
     const text = await res.text();
-    throw new Error(text || res.statusText);
+    const msg = formatApiErrorBody(text) || res.statusText;
+    throw new Error(msg);
   }
   return res.json() as Promise<T>;
 }
 
+async function parseEmpty(res: Response): Promise<void> {
+  if (!res.ok) {
+    const text = await res.text();
+    const msg = formatApiErrorBody(text) || res.statusText;
+    throw new Error(msg);
+  }
+}
+
 export type ListTasksParams = {
+  projectId: string;
   rootOnly?: boolean;
   status?: TaskStatus;
   priority?: TaskPriority;
@@ -59,16 +119,16 @@ export type ListTasksParams = {
   labelId?: string;
 };
 
-function buildTaskQuery(params?: ListTasksParams): string {
+function buildTaskQuery(params: ListTasksParams): string {
   const q = new URLSearchParams();
-  if (params?.rootOnly === true) q.set('rootOnly', '1');
-  if (params?.status) q.set('status', params.status);
-  if (params?.priority) q.set('priority', params.priority);
-  if (params?.assigneeId === '__none__') q.set('assigneeId', '__none__');
-  else if (params?.assigneeId) q.set('assigneeId', params.assigneeId);
-  if (params?.labelId) q.set('labelId', params.labelId);
-  const s = q.toString();
-  return s ? `?${s}` : '';
+  q.set('projectId', params.projectId);
+  if (params.rootOnly === true) q.set('rootOnly', '1');
+  if (params.status) q.set('status', params.status);
+  if (params.priority) q.set('priority', params.priority);
+  if (params.assigneeId === '__none__') q.set('assigneeId', '__none__');
+  else if (params.assigneeId) q.set('assigneeId', params.assigneeId);
+  if (params.labelId) q.set('labelId', params.labelId);
+  return `?${q.toString()}`;
 }
 
 export type WorkspaceActorsResponse = {
@@ -133,7 +193,7 @@ export const api = {
     );
   },
 
-  listTasks(params?: ListTasksParams) {
+  listTasks(params: ListTasksParams) {
     return apiFetch(`/api/tasks${buildTaskQuery(params)}`).then((r) =>
       parseJson<Task[]>(r),
     );
@@ -201,6 +261,8 @@ export const api = {
     status?: TaskStatus;
     priority?: TaskPriority;
     intent?: string;
+    /** Required for root tasks; omitted when creating under a parent via `parentId`. */
+    projectId?: string;
     parentId?: string | null;
     labelIds?: string[];
   }) {
@@ -271,5 +333,99 @@ export const api = {
     }).then((r) => {
       if (!r.ok) throw new Error(r.statusText);
     });
+  },
+
+  listProjects() {
+    return apiFetch('/api/projects').then((r) => parseJson<Project[]>(r));
+  },
+
+  getProject(id: string) {
+    return apiFetch(`/api/projects/${id}`).then((r) => parseJson<Project>(r));
+  },
+
+  createProject(body: {
+    title: string;
+    description?: string | null;
+    icon?: string | null;
+    status?: ProjectStatus;
+    priority?: ProjectPriority;
+    leadType?: 'member' | 'agent' | null;
+    leadId?: string | null;
+  }) {
+    return apiFetch('/api/projects', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }).then((r) => parseJson<Project>(r));
+  },
+
+  patchProject(
+    id: string,
+    body: Partial<{
+      title: string;
+      description: string | null;
+      icon: string | null;
+      status: ProjectStatus;
+      priority: ProjectPriority;
+      leadType: 'member' | 'agent' | null;
+      leadId: string | null;
+      position: number;
+    }>,
+  ) {
+    return apiFetch(`/api/projects/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(body),
+    }).then((r) => parseJson<Project>(r));
+  },
+
+  archiveProject(id: string) {
+    return apiFetch(`/api/projects/${id}/archive`, {
+      method: 'POST',
+    }).then((r) => parseJson<Project>(r));
+  },
+
+  listProjectMembers(projectId: string) {
+    return apiFetch(`/api/projects/${projectId}/members`).then((r) =>
+      parseJson<ProjectMember[]>(r),
+    );
+  },
+
+  addProjectMember(
+    projectId: string,
+    body: {
+      actorType: 'member' | 'agent';
+      actorId: string;
+      role?: ProjectMemberRole;
+    },
+  ) {
+    return apiFetch(`/api/projects/${projectId}/members`, {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }).then((r) => parseEmpty(r));
+  },
+
+  removeProjectMember(
+    projectId: string,
+    actorType: 'member' | 'agent',
+    actorId: string,
+  ) {
+    const at = encodeURIComponent(actorType);
+    const aid = encodeURIComponent(actorId);
+    return apiFetch(`/api/projects/${projectId}/members/${at}/${aid}`, {
+      method: 'DELETE',
+    }).then((r) => parseEmpty(r));
+  },
+
+  patchProjectMemberRole(
+    projectId: string,
+    actorType: 'member' | 'agent',
+    actorId: string,
+    role: 'admin' | 'member',
+  ) {
+    const at = encodeURIComponent(actorType);
+    const aid = encodeURIComponent(actorId);
+    return apiFetch(`/api/projects/${projectId}/members/${at}/${aid}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ role }),
+    }).then((r) => parseEmpty(r));
   },
 };

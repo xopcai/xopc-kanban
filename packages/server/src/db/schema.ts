@@ -33,6 +33,27 @@ export const project = sqliteTable(
   (t) => [index('idx_project_position').on(t.position)],
 );
 
+/** ACL: which actors can access a project and its tasks. */
+export const projectMember = sqliteTable(
+  'project_member',
+  {
+    projectId: text('project_id')
+      .notNull()
+      .references(() => project.id, { onDelete: 'cascade' }),
+    actorType: text('actor_type', { enum: ['member', 'agent'] }).notNull(),
+    actorId: text('actor_id').notNull(),
+    role: text('role', {
+      enum: ['owner', 'admin', 'member'],
+    }).notNull(),
+    createdAt: text('created_at').notNull(),
+  },
+  (t) => [
+    primaryKey({ columns: [t.projectId, t.actorType, t.actorId] }),
+    index('idx_project_member_actor').on(t.actorType, t.actorId),
+    index('idx_project_member_project').on(t.projectId),
+  ],
+);
+
 export const member = sqliteTable(
   'member',
   {

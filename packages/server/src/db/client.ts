@@ -28,8 +28,6 @@ sqlite.pragma('foreign_keys = ON');
 
 export const db = drizzle(sqlite, { schema });
 
+/** Applies `src/db/migrations/*.sql` (baseline + future deltas). Empty DB → full schema. */
 const migrationsFolder = path.join(__dirname, 'migrations');
-const journalPath = path.join(migrationsFolder, 'meta', '_journal.json');
-if (fs.existsSync(journalPath)) {
-  migrate(db, { migrationsFolder });
-}
+migrate(db, { migrationsFolder });

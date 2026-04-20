@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { TaskPriority, ViewMode } from '../types';
+import type { TaskPriority, ViewMode, WorkspaceScreen } from '../types';
 
 export type ThemeMode = 'light' | 'dark' | 'system';
 
@@ -8,6 +8,7 @@ export type TextSize = 'sm' | 'md' | 'lg';
 
 const THEME_KEY = 'xopc-theme';
 const TEXT_SIZE_KEY = 'xopc-text-size';
+const CURRENT_PROJECT_KEY = 'xopc-current-project';
 /** @deprecated read for migration only */
 const LEGACY_CONV_TEXT_KEY = 'xopc-conv-text';
 
@@ -19,6 +20,16 @@ function readStoredTheme(): ThemeMode {
     /* ignore */
   }
   return 'system';
+}
+
+function readStoredCurrentProjectId(): string | null {
+  try {
+    const v = localStorage.getItem(CURRENT_PROJECT_KEY);
+    if (v && v.length > 0) return v;
+  } catch {
+    /* ignore */
+  }
+  return null;
 }
 
 function readStoredTextSize(): TextSize {
@@ -48,6 +59,10 @@ const defaultTaskFilters: TaskFiltersState = {
 
 interface UiState {
   selectedTaskId: string | null;
+  /** Active project for task list / create; must match a row the user can access. */
+  currentProjectId: string | null;
+  /** Main area: kanban views vs project & member management. */
+  workspaceScreen: WorkspaceScreen;
   viewMode: ViewMode;
   createOpen: boolean;
   commandOpen: boolean;
@@ -58,6 +73,8 @@ interface UiState {
   selectionMode: boolean;
   selectedTaskIds: string[];
   selectTask: (id: string | null) => void;
+  setCurrentProjectId: (id: string | null) => void;
+  setWorkspaceScreen: (screen: WorkspaceScreen) => void;
   setViewMode: (mode: ViewMode) => void;
   setCreateOpen: (open: boolean) => void;
   setCommandOpen: (open: boolean) => void;
@@ -73,6 +90,8 @@ interface UiState {
 
 export const useUiStore = create<UiState>((set, get) => ({
   selectedTaskId: null,
+  currentProjectId: readStoredCurrentProjectId(),
+  workspaceScreen: 'tasks',
   viewMode: 'board',
   createOpen: false,
   commandOpen: false,
@@ -83,6 +102,16 @@ export const useUiStore = create<UiState>((set, get) => ({
   selectionMode: false,
   selectedTaskIds: [],
   selectTask: (id) => set({ selectedTaskId: id }),
+  setCurrentProjectId: (id) => {
+    try {
+      if (id) localStorage.setItem(CURRENT_PROJECT_KEY, id);
+      else localStorage.removeItem(CURRENT_PROJECT_KEY);
+    } catch {
+      /* ignore */
+    }
+    set({ currentProjectId: id });
+  },
+  setWorkspaceScreen: (screen) => set({ workspaceScreen: screen }),
   setViewMode: (mode) => set({ viewMode: mode }),
   setCreateOpen: (open) => set({ createOpen: open }),
   setCommandOpen: (open) => set({ commandOpen: open }),

@@ -8,7 +8,49 @@
   "nav": {
     "board": "看板",
     "list": "列表",
-    "graph": "关系图"
+    "graph": "关系图",
+    "projects": "项目"
+  },
+  "projects": {
+    "pageTitle": "项目",
+    "pageSubtitle": "创建工作区、管理成员，并在结项后归档。",
+    "heading": "工作区项目",
+    "subtitle": "成员账号可创建项目并添加协作者；每条任务只属于一个项目。",
+    "newTitle": "新建项目名称",
+    "titlePlaceholder": "例如：平台迭代",
+    "create": "创建项目",
+    "agentHint": "Agent 账号可被加入项目并使用其中的任务，但不能新建项目。",
+    "emptyList": "暂无项目，请在上方创建。",
+    "colTitle": "名称",
+    "colStatus": "状态",
+    "colActions": "操作",
+    "colActor": "成员或 Agent",
+    "colRole": "角色",
+    "membersHeading": "成员 — {{title}}",
+    "addMember": "添加成员或 Agent",
+    "add": "添加",
+    "rename": "重命名",
+    "renameTitle": "重命名项目",
+    "save": "保存",
+    "archive": "归档",
+    "archiveConfirm": "确定将项目「{{title}}」归档？归档后将从项目切换器中隐藏。",
+    "current": "项目",
+    "noProjects": "没有可用项目",
+    "emptyTasks": "请先创建项目再管理任务。",
+    "goCreate": "前往项目",
+    "needProject": "请先选择或创建项目",
+    "role": {
+      "owner": "负责人",
+      "admin": "管理员",
+      "member": "成员"
+    }
+  },
+  "projectStatus": {
+    "planned": "计划中",
+    "in_progress": "进行中",
+    "paused": "已暂停",
+    "completed": "已完成",
+    "cancelled": "已归档"
   },
   "boardView": {
     "deleteTaskConfirm": "删除任务 {{id}}？"
@@ -58,6 +100,7 @@
     "logout": "退出登录",
     "loading": "加载中…",
     "error": "出错了",
+    "invalidEmail": "邮箱格式不正确",
     "agents": "智能体",
     "newAgent": "新建智能体",
     "agentNamePlaceholder": "智能体名称",

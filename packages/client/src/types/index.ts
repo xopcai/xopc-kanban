@@ -99,3 +99,39 @@ export interface TaskEvent {
 }
 
 export type ViewMode = 'board' | 'list' | 'graph';
+
+export type ProjectStatus =
+  | 'planned'
+  | 'in_progress'
+  | 'paused'
+  | 'completed'
+  | 'cancelled';
+
+export type ProjectPriority = 'urgent' | 'high' | 'medium' | 'low' | 'none';
+
+export type ProjectMemberRole = 'owner' | 'admin' | 'member';
+
+export interface Project {
+  id: string;
+  title: string;
+  description: string | null;
+  icon: string | null;
+  status: ProjectStatus;
+  priority: ProjectPriority;
+  leadType: 'member' | 'agent' | null;
+  leadId: string | null;
+  position: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ProjectMember {
+  projectId: string;
+  actorType: ActorType;
+  actorId: string;
+  role: ProjectMemberRole;
+  createdAt: string;
+}
+
+/** Tasks vs project settings; both live in the main shell without react-router. */
+export type WorkspaceScreen = 'tasks' | 'projects';
